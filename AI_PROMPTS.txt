@@ -1,0 +1,13 @@
+AI PROMPT LOG: Travel Planning and Booking Platform
+Add an entry for every prompt that materially contributed to the project.
+
+================================================
+Date: 2026-10-31
+Student: Renad
+Tool: Claude
+Related Requirement: Repository setup (Member 1, Task 1)
+Prompt:
+Guide me step by step through repository and project setup (GitHub repo, branches, protection rules, root files).
+How the output was used:
+Followed the steps to create the repo, develop branch, branch ruleset and root files.
+================================================
