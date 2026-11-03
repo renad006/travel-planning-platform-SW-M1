@@ -87,3 +87,14 @@ Write a provider-scope helper so a moderator can only manage their own assigned 
 How the output was used:
 Added a @ProviderScope decorator and a global guard with unit tests; Members 2 and 4 will use the decorator on their routes.
 ================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-07 (audit logging)
+Prompt:
+Write a global AuditService with a schema (actor, role, action, target, metadata, timestamp) and a log() method other members can call.
+How the output was used:
+Created the schema, service, global module and a unit test; other members will call auditService.log() for refunds, moderation and admin actions.
+================================================
