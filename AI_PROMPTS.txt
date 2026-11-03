@@ -11,3 +11,68 @@ Guide me step by step through repository and project setup (GitHub repo, branche
 How the output was used:
 Followed the steps to create the repo, develop branch, branch ruleset and root files.
 ================================================
+================================================
+Date: 2026-10-31
+Student: Renad
+Tool: Claude
+Related Requirement: Task 1 (MongoDB Atlas, environment setup)
+Prompt:
+Guide me to create the Atlas cluster, database user and network access, and connect NestJS using MONGODB_URI. (Later: debug "querySrv ECONNREFUSED".)
+How the output was used:
+Created the cluster, user and IP access list; fixed a local DNS problem by using the non-SRV connection string in my local .env.
+================================================
+
+================================================
+Date: 2026-11-02
+Student: Renad
+Tool: Claude
+Related Requirement: Task 1 (main.ts, error handling, Swagger); GEN server-side validation and consistent error responses
+Prompt:
+Help me configure main.ts (global prefix, cookie-parser, CORS, ValidationPipe), write a global exception filter with the shape statusCode/message/error/timestamp/path, and set up Swagger with cookie auth.
+How the output was used:
+Implemented and tested each piece in the browser; fixed the path field to use originalUrl.
+================================================
+
+================================================
+Date: 2026-11-02
+Student: Renad
+Tool: Claude
+Related Requirement: Task 1 (module folders); ACC roles and statuses
+Prompt:
+Create the empty module folders for the other members and the shared enums (role, account status, provider type, booking status).
+How the output was used:
+Created the folders with .gitkeep and the four enum files. The booking status list is a proposal still to be agreed with Members 3, 4 and 5.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-01, ACC-05, ACC-09, ACC-13 (schema foundation)
+Prompt:
+Write the User schema (hashed password hidden by default, lockout fields, status, moderator assignment) with a users service and module.
+How the output was used:
+Created the schema, service and module; profile fields and rules are assumptions to verify against the requirements sheet.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-08; pagination used by ACC-14
+Prompt:
+Write a pagination DTO, a standard paginated response shape and an image-upload validator.
+How the output was used:
+Added them to common/ for the other members to reuse; allowed image types and max size are defaults to verify.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-04, ACC-06 (session), role-based authorization
+Prompt:
+Write the JWT strategy that reads the token from an httpOnly cookie and reloads the user from the database, plus the Public, Roles and CurrentUser decorators and global JwtAuthGuard and RolesGuard.
+How the output was used:
+Implemented and tested: protected routes return 401 in the standard error shape, and @Public() opens a route.
+================================================
