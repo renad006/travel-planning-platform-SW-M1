@@ -76,3 +76,14 @@ Write the JWT strategy that reads the token from an httpOnly cookie and reloads 
 How the output was used:
 Implemented and tested: protected routes return 401 in the standard error shape, and @Public() opens a route.
 ================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: FLT-01, HTL-01 (moderator scope); ACC-13
+Prompt:
+Write a provider-scope helper so a moderator can only manage their own assigned airline or hotel.
+How the output was used:
+Added a @ProviderScope decorator and a global guard with unit tests; Members 2 and 4 will use the decorator on their routes.
+================================================
