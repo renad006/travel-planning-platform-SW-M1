@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { AuditModule } from './audit/audit.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
@@ -22,6 +23,7 @@ import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
     }),
     UsersModule,
     AuthModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [
