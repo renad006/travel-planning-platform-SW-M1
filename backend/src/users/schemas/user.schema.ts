@@ -24,21 +24,27 @@ export class User {
   @Prop({ type: String, enum: AccountStatus, default: AccountStatus.ACTIVE })
   status: AccountStatus;
 
+  // ACC-05: 5 consecutive failures lock the account for 15 minutes
   @Prop({ default: 0 })
   failedLoginCount: number;
 
   @Prop({ type: Date, default: null })
   lockUntil: Date | null;
 
-  // Profile fields: adjust to match ACC-09 in the requirements sheet
+  // ACC-09: editable profile fields
   @Prop({ trim: true })
   phone?: string;
 
-  @Prop({ trim: true })
-  country?: string;
+  @Prop({ trim: true, uppercase: true, default: 'USD' })
+  preferredCurrency: string;
 
-  @Prop({ type: Object, default: {} })
-  preferences: Record<string, unknown>;
+  // ACC-07a / ACC-13: temporary password must be replaced at next login
+  @Prop({ default: false })
+  mustChangePassword: boolean;
+
+  // ACC-01: mandatory terms-and-privacy consent
+  @Prop({ type: Date })
+  termsAcceptedAt?: Date;
 
   // Moderators manage exactly one provider
   @Prop({ type: String, enum: ProviderType })
@@ -49,3 +55,15 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// Never leak credentials or lockout internals in any API response
+UserSchema.set('toJSON', {
+  versionKey: false,
+  transform: (_doc, ret) => {
+    const safe = ret as unknown as Record<string, unknown>;
+    delete safe.password;
+    delete safe.failedLoginCount;
+    delete safe.lockUntil;
+    return safe;
+  },
+});
