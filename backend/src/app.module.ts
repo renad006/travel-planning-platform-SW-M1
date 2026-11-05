@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ReferenceDataModule } from './reference-data/reference-data.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
@@ -26,6 +27,7 @@ import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
     AuthModule,
     AuditModule,
     NotificationsModule,
+    ReferenceDataModule,
   ],
   controllers: [AppController],
   providers: [

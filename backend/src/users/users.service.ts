@@ -33,6 +33,6 @@ export class UsersService {
   }
 
   updateById(id: string, update: UpdateQuery<UserDocument>) {
-    return this.userModel.findByIdAndUpdate(id, update, { new: true }).exec();
+    return this.userModel.findByIdAndUpdate(id, update, { returnDocument: 'after' }).exec();
   }
 }
