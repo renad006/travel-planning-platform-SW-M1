@@ -1,4 +1,4 @@
-import { Body, Controller, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, NotFoundException, Param, Patch, Post, Put } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -7,6 +7,7 @@ import { HotelsService } from './hotels.service';
 import { ProviderScope } from '../common/decorators/provider-scope.decorator';
 import { ProviderType } from '../common/enums/provider-type.enum';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
+import { UpdatePoliciesDto } from './dto/update-policies.dto';
 
 @ApiTags('Hotels')
 @ApiCookieAuth()
@@ -29,6 +30,13 @@ export class HotelsController {
         if (!hotel) {
             throw new NotFoundException('Hotel not found');
     }
-    return hotel;
-  }
+        return hotel;
+    }
+
+    @Put(':id/policies')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Set my hotel cancellation tiers (HTL-10)' })
+    setPolicies(@Param('id') id: string, @Body() dto: UpdatePoliciesDto) {
+        return this.hotelsService.setPolicies(id, dto);
+    }
 }

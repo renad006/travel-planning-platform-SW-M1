@@ -37,6 +37,19 @@ export class Hotel {
     // ACC-15: inactive hotels are hidden from search and cannot be booked
     @Prop({ default: true })
     isActive: boolean;
+    
+    // HTL-10: refund tiers, applied like FLT-09
+    @Prop({
+        type: [
+        {
+            _id: false,
+            daysBefore: { type: Number, required: true, min: 0 },
+            refundPercent: { type: Number, required: true, min: 0, max: 100 },
+        },
+        ],
+        default: [],
+    })
+    cancellationTiers: { daysBefore: number; refundPercent: number }[];
 }
 
 export const HotelSchema = SchemaFactory.createForClass(Hotel);
