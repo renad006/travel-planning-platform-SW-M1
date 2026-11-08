@@ -9,6 +9,7 @@ import { ProviderType } from '../common/enums/provider-type.enum';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
+import { UpdateRoomDto } from './dto/update-room.dto';
 
 @ApiTags('Hotels')
 @ApiCookieAuth()
@@ -50,5 +51,16 @@ export class HotelsController {
         @Body() dto: CreateAvailabilityDto,
     ) {
         return this.hotelsService.addAvailability(id, roomId, dto);
+    }
+
+    @Patch(':id/rooms/:roomId')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Edit a room beds, occupancy and price (HTL-05)' })
+    updateRoom(
+        @Param('id') id: string,
+        @Param('roomId') roomId: string,
+        @Body() dto: UpdateRoomDto,
+    ) {
+        return this.hotelsService.updateRoom(id, roomId, dto);
     }
 }

@@ -8,6 +8,7 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { Room, RoomDocument } from './schemas/room.schema';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { RoomAvailability, RoomAvailabilityDocument, } from './schemas/room-availability.schema';
+import { UpdateRoomDto } from './dto/update-room.dto';
 @Injectable()
 export class HotelsService {
     constructor(
@@ -73,5 +74,17 @@ export class HotelsService {
             );
         }
         return this.availabilityModel.create({ roomId, startDate, endDate });
+    }
+
+    async updateRoom(hotelId: string, roomId: string, dto: UpdateRoomDto) {
+        const room = await this.roomModel
+            .findOneAndUpdate({ _id: roomId, hotelId }, dto, {
+                returnDocument: 'after',
+            })
+            .exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        return room;
     }
 }
