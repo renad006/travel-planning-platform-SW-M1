@@ -13,6 +13,7 @@ import { ReferenceDataModule } from './reference-data/reference-data.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
+import { FlightsModule } from './flights/flights.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
     AuditModule,
     NotificationsModule,
     ReferenceDataModule,
+     FlightsModule,
   ],
   controllers: [AppController],
   providers: [
