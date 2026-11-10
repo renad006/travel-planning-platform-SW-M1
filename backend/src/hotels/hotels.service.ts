@@ -13,6 +13,11 @@ import { BookingStatus } from '../common/enums/booking-status.enum';
 import { HotelBooking, HotelBookingDocument, } from '../hotel-bookings/schemas/hotel-booking.schema';
 import { RoomBlock, RoomBlockDocument } from './schemas/room-block.schema';
 import { RoomStatusQueryDto } from './dto/room-status-query.dto';
+import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
+import {
+    buildPaginatedResponse,
+    getSkip,
+} from '../common/utils/pagination.helper';
 @Injectable()
 export class HotelsService {
     constructor(
@@ -211,5 +216,87 @@ export class HotelsService {
         );
     }
 
+    async search(query: SearchHotelsQueryDto) {
+        if (!query.cityId && !query.countryCode) {
+            throw new BadRequestException('Provide a cityId or a countryCode');
+        }
+        const checkIn = new Date(query.checkIn);
+        const checkOut = new Date(query.checkOut);
+        if (checkOut <= checkIn) {
+            throw new BadRequestException('Check-out must be after check-in');
+        }
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        if (checkIn < today) {
+            throw new BadRequestException('Check-in cannot be in the past');
+        }
 
+        const hotels = await this.hotelModel
+            .find({
+                isActive: true,
+                ...(query.cityId && { cityId: query.cityId }),
+                ...(query.countryCode && {
+                    countryCode: query.countryCode.toUpperCase(),
+                }),
+            })
+            .sort({ name: 1 })
+            .exec();
+        const rooms = await this.roomModel
+            .find({ hotelId: { $in: hotels.map((h) => h._id) }, isActive: true })
+            .exec();
+        const roomIds = rooms.map((r) => r._id);
+
+        // shortcut: one bookable range must cover the whole stay, adjacent ranges are not joined
+        const [covered, blocked, booked] = await Promise.all([
+            this.availabilityModel
+                .distinct('roomId', {
+                    roomId: { $in: roomIds },
+                    startDate: { $lte: checkIn },
+                    endDate: { $gte: checkOut },
+                })
+                .exec(),
+            this.blockModel
+                .distinct('roomId', {
+                    roomId: { $in: roomIds },
+                    startDate: { $lt: checkOut },
+                    endDate: { $gt: checkIn },
+                })
+                .exec(),
+            this.bookingModel
+                .distinct('rooms.roomId', {
+                    'rooms.roomId': { $in: roomIds },
+                    status: {
+                        $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+                    },
+                    checkIn: { $lt: checkOut },
+                    checkOut: { $gt: checkIn },
+                })
+                .exec(),
+        ]);
+        const coveredSet = new Set(covered.map(String));
+        const unavailable = new Set([...blocked, ...booked].map(String));
+
+        const freeByHotel = new Map<string, RoomDocument[]>();
+        for (const room of rooms) {
+            const id = room.id as string;
+            if (!coveredSet.has(id) || unavailable.has(id)) continue;
+            const key = room.hotelId.toString();
+            freeByHotel.set(key, [...(freeByHotel.get(key) ?? []), room]);
+        }
+
+        // enough free rooms, and the largest ones together fit all the guests
+        const matching = hotels.filter((hotel) => {
+            const free = freeByHotel.get(hotel.id as string) ?? [];
+            if (free.length < query.rooms) return false;
+            const capacity = free
+                .map((r) => r.maxOccupancy)
+                .sort((a, b) => b - a)
+                .slice(0, query.rooms)
+                .reduce((sum, n) => sum + n, 0);
+            return capacity >= query.guests;
+        });
+
+        const items = matching.slice(getSkip(query), getSkip(query) + query.limit);
+        return buildPaginatedResponse(items, matching.length, query);
+    }
 }
