@@ -10,6 +10,7 @@ import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
+import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 
 @ApiTags('Hotels')
 @ApiCookieAuth()
@@ -88,6 +89,13 @@ export class HotelsController {
     @ApiOperation({ summary: 'Delete a never-reserved room (HTL-06)' })
     deleteRoom(@Param('id') id: string, @Param('roomId') roomId: string) {
         return this.hotelsService.deleteRoom(id, roomId);
+    }
+
+    @Get(':id/availability')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'View room status for a date range (HTL-08)' })
+    roomStatuses(@Param('id') id: string, @Query() query: RoomStatusQueryDto) {
+        return this.hotelsService.roomStatuses(id, query);
     }
 
 }

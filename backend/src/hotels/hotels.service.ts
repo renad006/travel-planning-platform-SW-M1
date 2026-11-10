@@ -12,6 +12,7 @@ import { UpdateRoomDto } from './dto/update-room.dto';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { HotelBooking, HotelBookingDocument, } from '../hotel-bookings/schemas/hotel-booking.schema';
 import { RoomBlock, RoomBlockDocument } from './schemas/room-block.schema';
+import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 @Injectable()
 export class HotelsService {
     constructor(
@@ -161,5 +162,54 @@ export class HotelsService {
         await this.blockModel.deleteMany({ roomId: room._id });
         await room.deleteOne();
     }
+
+    async roomStatuses(hotelId: string, query: RoomStatusQueryDto) {
+        const from = new Date(query.from);
+        const to = new Date(query.to);
+        if (to <= from) {
+            throw new BadRequestException('"to" must be after "from"');
+        }
+        const rooms = await this.roomModel.find({ hotelId }).exec();
+        // shortcut: three queries per room, fine for a hotel's room count
+        return Promise.all(
+            rooms.map(async (room) => {
+                const booking = await this.bookingModel
+                    .findOne({
+                        'rooms.roomId': room._id,
+                        status: {
+                            $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+                        },
+                        checkIn: { $lt: to },
+                        checkOut: { $gt: from },
+                    })
+                .exec();
+                if (booking) {
+                    return {
+                        roomId: room.id as string,
+                        name: room.name,
+                        status: 'Booked',
+                        reference: booking.reference ?? null,
+                    };
+                }
+                const blocked = await this.blockModel.exists({
+                    roomId: room._id,
+                    startDate: { $lt: to },
+                    endDate: { $gt: from },
+                });
+                // a room with no availability range covering the dates cannot be booked
+                const covered = await this.availabilityModel.exists({
+                    roomId: room._id,
+                    startDate: { $lte: from },
+                    endDate: { $gte: to },
+                });
+                return {
+                    roomId: room.id as string,
+                    name: room.name,
+                    status: blocked || !covered ? 'Blocked' : 'Available',
+                };
+            }),
+        );
+    }
+
 
 }
