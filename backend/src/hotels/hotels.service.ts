@@ -9,12 +9,17 @@ import { Room, RoomDocument } from './schemas/room.schema';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { RoomAvailability, RoomAvailabilityDocument, } from './schemas/room-availability.schema';
 import { UpdateRoomDto } from './dto/update-room.dto';
+import { BookingStatus } from '../common/enums/booking-status.enum';
+import { HotelBooking, HotelBookingDocument, } from '../hotel-bookings/schemas/hotel-booking.schema';
+import { RoomBlock, RoomBlockDocument } from './schemas/room-block.schema';
 @Injectable()
 export class HotelsService {
     constructor(
         @InjectModel(Hotel.name) private readonly hotelModel: Model<HotelDocument>,
         @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
         @InjectModel(RoomAvailability.name) private readonly availabilityModel: Model<RoomAvailabilityDocument>,
+        @InjectModel(RoomBlock.name) private readonly blockModel: Model<RoomBlockDocument>,
+        @InjectModel(HotelBooking.name)private readonly bookingModel: Model<HotelBookingDocument>,
     ) {}
 
     create(dto: CreateHotelDto) {
@@ -87,4 +92,36 @@ export class HotelsService {
         }
         return room;
     }
+
+    async blockRoom(
+        hotelId: string,
+        roomId: string,
+        dto: CreateAvailabilityDto,
+    ) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
+        if (endDate <= startDate) {
+            throw new BadRequestException('End date must be after start date');
+        }
+        // HTL-06: refuse if a Confirmed or Pending Payment reservation overlaps
+        const clash = await this.bookingModel.exists({
+            'rooms.roomId': room._id,
+            status: {
+                $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+            },
+                checkIn: { $lt: endDate },
+                checkOut: { $gt: startDate },
+            });
+            if (clash) {
+                throw new ConflictException(
+                    'This range overlaps an existing reservation',
+                );
+        }
+        return this.blockModel.create({ roomId, startDate, endDate });
+    }
+
 }
