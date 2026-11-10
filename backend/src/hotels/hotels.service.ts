@@ -14,6 +14,7 @@ import { HotelBooking, HotelBookingDocument, } from '../hotel-bookings/schemas/h
 import { RoomBlock, RoomBlockDocument } from './schemas/room-block.schema';
 import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
+import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
 import {
     buildPaginatedResponse,
     getSkip,
@@ -216,12 +217,10 @@ export class HotelsService {
         );
     }
 
-    async search(query: SearchHotelsQueryDto) {
-        if (!query.cityId && !query.countryCode) {
-            throw new BadRequestException('Provide a cityId or a countryCode');
-        }
-        const checkIn = new Date(query.checkIn);
-        const checkOut = new Date(query.checkOut);
+    // HTL-11 / HTL-15: check-out after check-in, and check-in not in the past
+    private parseStay(checkInText: string, checkOutText: string) {
+        const checkIn = new Date(checkInText);
+        const checkOut = new Date(checkOutText);
         if (checkOut <= checkIn) {
             throw new BadRequestException('Check-out must be after check-in');
         }
@@ -230,22 +229,12 @@ export class HotelsService {
         if (checkIn < today) {
             throw new BadRequestException('Check-in cannot be in the past');
         }
+        return { checkIn, checkOut };
+    }
 
-        const hotels = await this.hotelModel
-            .find({
-                isActive: true,
-                ...(query.cityId && { cityId: query.cityId }),
-                ...(query.countryCode && {
-                    countryCode: query.countryCode.toUpperCase(),
-                }),
-            })
-            .sort({ name: 1 })
-            .exec();
-        const rooms = await this.roomModel
-            .find({ hotelId: { $in: hotels.map((h) => h._id) }, isActive: true })
-            .exec();
+    // Rooms that are bookable, not blocked and not reserved for the whole stay
+    private async freeRooms(rooms: RoomDocument[], checkIn: Date, checkOut: Date) {
         const roomIds = rooms.map((r) => r._id);
-
         // shortcut: one bookable range must cover the whole stay, adjacent ranges are not joined
         const [covered, blocked, booked] = await Promise.all([
             this.availabilityModel
@@ -275,11 +264,52 @@ export class HotelsService {
         ]);
         const coveredSet = new Set(covered.map(String));
         const unavailable = new Set([...blocked, ...booked].map(String));
+        return rooms.filter(
+            (r) => coveredSet.has(r.id as string) && !unavailable.has(r.id as string),
+        );
+    }
 
+    async availableRooms(hotelId: string, query: RoomsAvailableQueryDto) {
+        const { checkIn, checkOut } = this.parseStay(query.checkIn, query.checkOut);
+        const hotel = await this.hotelModel.findOne({ _id: hotelId, isActive: true });
+        if (!hotel) {
+            throw new NotFoundException('Hotel not found');
+        }
+        const rooms = await this.roomModel
+            .find({ hotelId, isActive: true })
+            .sort({ pricePerNight: 1 })
+            .exec();
+        const nights = Math.round(
+            (checkOut.getTime() - checkIn.getTime()) / (24 * 60 * 60 * 1000),
+        );
+        return (await this.freeRooms(rooms, checkIn, checkOut)).map((room) => ({
+            ...room.toJSON(),
+            nights,
+            totalPrice: room.pricePerNight * nights,
+        }));
+    }
+
+    async search(query: SearchHotelsQueryDto) {
+        if (!query.cityId && !query.countryCode) {
+            throw new BadRequestException('Provide a cityId or a countryCode');
+        }
+        const { checkIn, checkOut } = this.parseStay(query.checkIn, query.checkOut);
+
+        const hotels = await this.hotelModel
+            .find({
+                isActive: true,
+                ...(query.cityId && { cityId: query.cityId }),
+                ...(query.countryCode && {
+                    countryCode: query.countryCode.toUpperCase(),
+                }),
+            })
+            .sort({ name: 1 })
+            .exec();
+        const rooms = await this.roomModel
+            .find({ hotelId: { $in: hotels.map((h) => h._id) }, isActive: true })
+            .exec();
         const freeByHotel = new Map<string, RoomDocument[]>();
-        for (const room of rooms) {
-            const id = room.id as string;
-            if (!coveredSet.has(id) || unavailable.has(id)) continue;
+        for (const room of await this.freeRooms(rooms, checkIn, checkOut)) {
             const key = room.hotelId.toString();
             freeByHotel.set(key, [...(freeByHotel.get(key) ?? []), room]);
         }

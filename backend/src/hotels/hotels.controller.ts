@@ -12,6 +12,7 @@ import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
+import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Hotels')
@@ -98,6 +99,16 @@ export class HotelsController {
     @ApiOperation({ summary: 'Search hotels with free rooms (HTL-11)' })
     search(@Query() query: SearchHotelsQueryDto) {
         return this.hotelsService.search(query);
+    }
+
+    @Get(':id/rooms/available')
+    @Public()
+    @ApiOperation({ summary: 'List free rooms for a stay (HTL-15)' })
+    availableRooms(
+        @Param('id') id: string,
+        @Query() query: RoomsAvailableQueryDto,
+    ) {
+        return this.hotelsService.availableRooms(id, query);
     }
 
     @Get(':id/availability')
