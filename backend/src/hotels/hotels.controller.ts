@@ -1,4 +1,4 @@
-import { Body, Controller, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, NotFoundException, Param, Patch, Post, Delete, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -73,6 +73,21 @@ export class HotelsController {
         @Body() dto: CreateAvailabilityDto,
     ) {
         return this.hotelsService.blockRoom(id, roomId, dto);
+    }
+
+    @Patch(':id/rooms/:roomId/deactivate')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Deactivate a room (HTL-06)' })
+    deactivateRoom(@Param('id') id: string, @Param('roomId') roomId: string) {
+        return this.hotelsService.deactivateRoom(id, roomId);
+    }
+
+    @Delete(':id/rooms/:roomId')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Delete a never-reserved room (HTL-06)' })
+    deleteRoom(@Param('id') id: string, @Param('roomId') roomId: string) {
+        return this.hotelsService.deleteRoom(id, roomId);
     }
 
 }

@@ -124,4 +124,42 @@ export class HotelsService {
         return this.blockModel.create({ roomId, startDate, endDate });
     }
 
+    async deactivateRoom(hotelId: string, roomId: string) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        // HTL-06: refuse if a Confirmed or Pending Payment reservation is not over yet
+        const clash = await this.bookingModel.exists({
+            'rooms.roomId': room._id,
+            status: {
+                $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+            },
+            checkOut: { $gt: new Date() },
+        });
+        if (clash) {
+            throw new ConflictException(
+                'This room has current or upcoming reservations',
+            );
+        }
+        room.isActive = false;
+        return room.save();
+    }
+
+    async deleteRoom(hotelId: string, roomId: string) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        // HTL-06: only rooms that were never reserved can be deleted
+        if (await this.bookingModel.exists({ 'rooms.roomId': room._id })) {
+            throw new ConflictException(
+                'This room has been reserved before, deactivate it instead',
+            );
+        }
+        await this.availabilityModel.deleteMany({ roomId: room._id });
+        await this.blockModel.deleteMany({ roomId: room._id });
+        await room.deleteOne();
+    }
+
 }
