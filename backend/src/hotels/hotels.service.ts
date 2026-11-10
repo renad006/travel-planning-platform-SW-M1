@@ -285,18 +285,45 @@ export class HotelsService {
         }
 
         // enough free rooms, and the largest ones together fit all the guests
-        const matching = hotels.filter((hotel) => {
-            const free = freeByHotel.get(hotel.id as string) ?? [];
-            if (free.length < query.rooms) return false;
-            const capacity = free
-                .map((r) => r.maxOccupancy)
-                .sort((a, b) => b - a)
-                .slice(0, query.rooms)
-                .reduce((sum, n) => sum + n, 0);
-            return capacity >= query.guests;
-        });
+        const matching = hotels
+            .map((hotel) => {
+                const free = freeByHotel.get(hotel.id as string) ?? [];
+                const capacity = free
+                    .map((r) => r.maxOccupancy)
+                    .sort((a, b) => b - a)
+                    .slice(0, query.rooms)
+                    .reduce((sum, n) => sum + n, 0);
+                const fits = free.length >= query.rooms && capacity >= query.guests;
+                // HTL-12: the hotel's price is its cheapest free room per night
+                const cheapestPrice = Math.min(...free.map((r) => r.pricePerNight));
+                return { hotel, fits, cheapestPrice };
+            })
+            .filter(
+                ({ hotel, fits, cheapestPrice }) =>
+                    fits &&
+                    (query.minPrice === undefined || cheapestPrice >= query.minPrice) &&
+                    (query.maxPrice === undefined || cheapestPrice <= query.maxPrice) &&
+                    // unrated hotels (averageRating null) are excluded by a rating filter
+                    (query.minRating === undefined ||
+                        (hotel.averageRating !== null &&
+                            hotel.averageRating >= query.minRating)),
+            );
 
-        const items = matching.slice(getSkip(query), getSkip(query) + query.limit);
+        const direction = query.sortOrder === 'asc' ? 1 : -1;
+        if (query.sortBy === 'price') {
+            matching.sort((a, b) => (a.cheapestPrice - b.cheapestPrice) * direction);
+        } else if (query.sortBy === 'rating') {
+            // unrated hotels sort as 0, so they come last when highest rating is first
+            matching.sort(
+                (a, b) =>
+                    ((a.hotel.averageRating ?? 0) - (b.hotel.averageRating ?? 0)) *
+                    direction,
+            );
+        }
+
+        const items = matching
+            .slice(getSkip(query), getSkip(query) + query.limit)
+            .map(({ hotel, cheapestPrice }) => ({ ...hotel.toJSON(), cheapestPrice }));
         return buildPaginatedResponse(items, matching.length, query);
     }
 }

@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 const trim = ({ value }: { value: unknown }) =>
@@ -41,4 +50,42 @@ export class SearchHotelsQueryDto extends PaginationQueryDto {
   @IsInt()
   @Min(1)
   rooms: number = 1;
+
+  // HTL-12: inclusive price range on the cheapest qualifying room per night
+  @ApiPropertyOptional({ example: 50, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minPrice?: number;
+
+  @ApiPropertyOptional({ example: 300, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxPrice?: number;
+
+  // unrated hotels are excluded when this is set
+  @ApiPropertyOptional({ example: 4, minimum: 1, maximum: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  minRating?: number;
+
+  @ApiPropertyOptional({
+    enum: ['price', 'rating'],
+    description: 'Omit to sort by hotel name',
+  })
+  @IsOptional()
+  @IsIn(['price', 'rating'])
+  sortBy?: 'price' | 'rating' = undefined;
+
+  // overrides the shared default (desc) so price sorts cheapest first
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'asc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'asc';
 }
