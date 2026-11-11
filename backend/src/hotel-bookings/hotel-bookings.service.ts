@@ -9,7 +9,9 @@ import {
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
+import { randomBytes } from 'crypto';
 import { BookingStatus } from '../common/enums/booking-status.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { nightsOf, parseStay } from '../common/utils/stay.util';
 import { Hotel, HotelDocument } from '../hotels/schemas/hotel.schema';
 import {
@@ -51,6 +53,7 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
     private readonly availabilityModel: Model<RoomAvailabilityDocument>,
     @InjectModel(RoomBlock.name)
     private readonly blockModel: Model<RoomBlockDocument>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   onModuleInit() {
@@ -81,6 +84,36 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
       { status: BookingStatus.EXPIRED },
     );
     await this.lockModel.deleteMany({ bookingId: { $in: ids } });
+  }
+
+  // HTL-17: the payment code calls this once the payment is verified
+  async confirm(bookingId: string) {
+    // shortcut: a random 10-hex reference, a clash is rejected by the unique index, not retried
+    const reference = `HTL-${randomBytes(5).toString('hex').toUpperCase()}`;
+    const booking = await this.bookingModel.findOneAndUpdate(
+      {
+        _id: bookingId,
+        status: BookingStatus.PENDING_PAYMENT,
+        holdExpiresAt: { $gt: new Date() },
+      },
+      { status: BookingStatus.CONFIRMED, reference },
+      { returnDocument: 'after' },
+    );
+    if (!booking) {
+      throw new ConflictException(
+        'This reservation is not awaiting payment, or its hold has expired',
+      );
+    }
+    const hotel = await this.hotelModel.findById(booking.hotelId);
+    const day = (d: Date) => d.toISOString().slice(0, 10);
+    await this.notifications.notify({
+      userId: booking.userId.toString(),
+      type: 'BOOKING_CONFIRMED',
+      title: 'Hotel reservation confirmed',
+      message: `Reservation ${reference} at ${hotel?.name ?? 'your hotel'}, ${day(booking.checkIn)} to ${day(booking.checkOut)}, total ${booking.totalPrice}.`,
+      related: { type: 'hotel_booking', id: booking.id as string },
+    });
+    return booking;
   }
 
   // HTL-16 + HTL-18: hold all selected rooms together as one Pending Payment reservation

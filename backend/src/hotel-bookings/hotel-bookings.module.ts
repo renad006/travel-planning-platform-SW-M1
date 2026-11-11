@@ -31,5 +31,6 @@ import {
     ],
     controllers: [HotelBookingsController],
     providers: [HotelBookingsService],
+    exports: [HotelBookingsService],
 })
 export class HotelBookingsModule {}
