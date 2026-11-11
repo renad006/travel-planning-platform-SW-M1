@@ -70,6 +70,18 @@ export class HotelsController {
         return this.hotelsService.updateRoom(id, roomId, dto);
     }
 
+    @Patch(':id/rooms/:roomId/availability/:availabilityId')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Edit a bookable date range of a room (HTL-05)' })
+    updateAvailability(
+        @Param('id') id: string,
+        @Param('roomId') roomId: string,
+        @Param('availabilityId') availabilityId: string,
+        @Body() dto: CreateAvailabilityDto,
+    ) {
+        return this.hotelsService.updateAvailability(id, roomId, availabilityId, dto);
+    }
+
     @Post(':id/rooms/:roomId/blocks')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Block a date range for a room (HTL-06)' })
