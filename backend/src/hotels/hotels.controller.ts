@@ -14,6 +14,7 @@ import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
 import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
 import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Hotels')
@@ -117,6 +118,13 @@ export class HotelsController {
     @ApiOperation({ summary: 'Hotel details, with free rooms if dates are given (HTL-02)' })
     details(@Param('id') id: string, @Query() query: HotelDetailsQueryDto) {
         return this.hotelsService.details(id, query);
+    }
+
+    @Get(':id/reservations')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Reservations of my hotel (HTL-22)' })
+    reservations(@Param('id') id: string, @Query() query: PaginationQueryDto) {
+        return this.hotelsService.reservations(id, query);
     }
 
     @Get(':id/availability')

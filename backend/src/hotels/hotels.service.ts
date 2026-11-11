@@ -17,6 +17,7 @@ import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
 import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
 import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
 import { parseStay } from '../common/utils/stay.util';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
     buildPaginatedResponse,
     getSkip,
@@ -254,6 +255,23 @@ export class HotelsService {
         return rooms.filter(
             (r) => coveredSet.has(r.id as string) && !unavailable.has(r.id as string),
         );
+    }
+
+    // HTL-22: the moderator's view of their hotel's reservations (Expired attempts are hidden)
+    async reservations(hotelId: string, query: PaginationQueryDto) {
+        const filter = { hotelId, status: { $ne: BookingStatus.EXPIRED } };
+        const [items, total] = await Promise.all([
+            this.bookingModel
+                .find(filter)
+                .sort({ checkIn: -1 })
+                .skip(getSkip(query))
+                .limit(query.limit)
+                .populate('userId', 'name email')
+                .populate('rooms.roomId', 'name type')
+                .exec(),
+            this.bookingModel.countDocuments(filter),
+        ]);
+        return buildPaginatedResponse(items, total, query);
     }
 
     async details(id: string, query: HotelDetailsQueryDto) {
