@@ -1,74 +1,100 @@
-import { IsString, IsOptional, IsNumber, IsDateString, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { IsEnum, IsInt, IsMongoId, IsNumber, IsOptional, Matches, Max, Min } from 'class-validator';
+import { CabinClass } from '../schemas/cabin-inventory.schema';
+import { PaginationDto } from './pagination.dto';
 
-export class SearchFlightsDto {
+export enum FlightSortBy {
+  PRICE = 'price',
+  DURATION = 'duration',
+  DEPARTURE_TIME = 'departureTime',
+}
+
+export enum SortOrder {
+  ASC = 'asc',
+  DESC = 'desc',
+}
+
+const upper = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** FLT-11, FLT-12, FLT-15 */
+export class SearchFlightsDto extends PaginationDto {
   @ApiProperty({ example: 'CAI' })
-  @IsString()
+  @Transform(upper)
+  @Matches(/^[A-Z]{3}$/, { message: 'origin must be a 3-letter IATA code' })
   origin: string;
 
   @ApiProperty({ example: 'DXB' })
-  @IsString()
+  @Transform(upper)
+  @Matches(/^[A-Z]{3}$/, { message: 'destination must be a 3-letter IATA code' })
   destination: string;
 
-  @ApiProperty({ example: '2026-12-20' })
-  @IsDateString()
+  @ApiProperty({ example: '2026-12-20', description: 'Local date at the departure airport' })
+  @Matches(DATE, { message: 'departureDate must be YYYY-MM-DD' })
   departureDate: string;
 
-  @ApiPropertyOptional({ example: '2026-12-25' })
+  @ApiPropertyOptional({ example: '2026-12-25', description: 'Set for a round-trip search' })
   @IsOptional()
-  @IsDateString()
+  @Matches(DATE, { message: 'returnDate must be YYYY-MM-DD' })
   returnDate?: string;
 
-  @ApiPropertyOptional({ example: 1 })
+  @ApiPropertyOptional({ example: 1, default: 1, description: 'Age 12+, at least 1' })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(9)
   adults?: number;
 
-  @ApiPropertyOptional({ example: 0 })
+  @ApiPropertyOptional({ example: 0, default: 0, description: 'Age 2-11' })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(9)
   children?: number;
 
-  @ApiPropertyOptional({ example: 0 })
+  @ApiPropertyOptional({ example: 0, default: 0, description: 'Under 2, no seat, max one per adult' })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(9)
   infants?: number;
 
-  @ApiPropertyOptional({ example: 'Economy', enum: ['Economy', 'Business'] })
+  @ApiPropertyOptional({ enum: CabinClass, description: 'Optional filter (FLT-12c)' })
   @IsOptional()
-  @IsEnum(['Economy', 'Business'])
-  cabinClass?: string;
+  @IsEnum(CabinClass)
+  cabinClass?: CabinClass;
 
-  @ApiPropertyOptional({ example: 500 })
+  @ApiPropertyOptional({ example: 100, description: 'Inclusive minimum fare per adult/child' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  minPrice?: number;
+
+  @ApiPropertyOptional({ example: 500, description: 'Inclusive maximum fare per adult/child' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   maxPrice?: number;
 
   @ApiPropertyOptional({ example: '6a6fc29e5ec1356c91724bab' })
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   airlineId?: string;
 
-  @ApiPropertyOptional({ example: 'price', enum: ['price', 'duration', 'departureTime'] })
+  @ApiPropertyOptional({ enum: FlightSortBy, default: FlightSortBy.DEPARTURE_TIME })
   @IsOptional()
-  @IsString()
-  sortBy?: string;
+  @IsEnum(FlightSortBy)
+  sortBy?: FlightSortBy;
 
-  // --- PAGINATION FIELDS (Must be inside the class!) ---
-  @ApiPropertyOptional({ example: 1, description: 'Page number' })
+  @ApiPropertyOptional({ enum: SortOrder, default: SortOrder.ASC })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  page?: number;
-
-  @ApiPropertyOptional({ example: 10, description: 'Results per page' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  limit?: number;
+  @IsEnum(SortOrder)
+  sortOrder?: SortOrder;
 }

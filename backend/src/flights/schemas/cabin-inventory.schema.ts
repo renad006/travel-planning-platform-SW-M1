@@ -1,30 +1,49 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type CabinInventoryDocument = HydratedDocument<CabinInventory>;
 
+/** FLT-04: the fixed set of cabin categories. */
+export enum CabinClass {
+  ECONOMY = 'Economy',
+  PREMIUM_ECONOMY = 'Premium Economy',
+  BUSINESS = 'Business',
+  FIRST = 'First',
+}
+
 @Schema({ timestamps: true })
 export class CabinInventory {
-  @Prop({ type: Types.ObjectId, ref: 'Flight', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Flight', required: true })
   flightId: Types.ObjectId;
 
-  @Prop({ required: true, enum: ['Economy', 'Business'] })
-  cabinClass: string;
+  @Prop({ type: String, enum: Object.values(CabinClass), required: true })
+  cabinClass: CabinClass;
 
-  @Prop({ required: true })
+  @Prop({ required: true, min: 1 })
   totalSeats: number;
 
-  @Prop({ required: true, default: 0 })
-  heldSeats: number; // Seats currently in checkout
+  /** Seats reserved by Pending Payment bookings (FLT-22). */
+  @Prop({ required: true, default: 0, min: 0 })
+  heldSeats: number;
 
-  @Prop({ required: true })
-  bookedSeats: number; // Seats confirmed
+  /** Seats of Confirmed bookings (FLT-23). */
+  @Prop({ required: true, default: 0, min: 0 })
+  bookedSeats: number;
 
-  @Prop({ required: true })
+  /** Fare per adult/child, in the single platform currency (PAY-04). */
+  @Prop({ required: true, min: 0.01 })
   price: number;
+
+  /** FLT-04: free baggage allowance (number of bags). */
+  @Prop({ required: true, min: 0 })
+  freeBags: number;
+
+  /** FLT-04: maximum weight per bag (kg). */
+  @Prop({ required: true, min: 0.1 })
+  maxWeightKg: number;
 }
 
 export const CabinInventorySchema = SchemaFactory.createForClass(CabinInventory);
 
-// Ensure one inventory doc per flight + cabin class
+// FLT-04: each cabin category is used at most once per flight.
 CabinInventorySchema.index({ flightId: 1, cabinClass: 1 }, { unique: true });
