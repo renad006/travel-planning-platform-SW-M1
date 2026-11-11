@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -20,5 +20,19 @@ export class HotelBookingsController {
   })
   create(@CurrentUser() user: UserDocument, @Body() dto: CreateHotelBookingDto) {
     return this.bookingsService.create(user.id, dto);
+  }
+
+  @Get()
+  @Roles(Role.USER)
+  @ApiOperation({ summary: 'My reservations: Upcoming, Past and Cancelled (HTL-20)' })
+  listMine(@CurrentUser() user: UserDocument) {
+    return this.bookingsService.listMine(user.id);
+  }
+
+  @Get(':id')
+  @Roles(Role.USER)
+  @ApiOperation({ summary: 'Details of one of my reservations (HTL-20)' })
+  findMine(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.bookingsService.findMine(user.id, id);
   }
 }

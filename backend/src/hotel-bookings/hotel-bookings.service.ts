@@ -8,7 +8,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
+import { Connection, isValidObjectId, Model } from 'mongoose';
 import { randomBytes } from 'crypto';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -118,6 +118,56 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
       message: `Reservation ${reference} at ${hotel?.name ?? 'your hotel'}, ${day(booking.checkIn)} to ${day(booking.checkOut)}, total ${booking.totalPrice}.`,
       related: { type: 'hotel_booking', id: booking.id as string },
     });
+    return booking;
+  }
+
+  // HTL-20: the user's reservations grouped as Upcoming, Past and Cancelled.
+  // Pending Payment and Expired are unpaid attempts, so they are not listed.
+  async listMine(userId: string) {
+    const bookings = await this.bookingModel
+      .find({
+        userId,
+        status: {
+          $in: [
+            BookingStatus.CONFIRMED,
+            BookingStatus.COMPLETED,
+            BookingStatus.CANCELLED,
+          ],
+        },
+      })
+      .sort({ checkIn: 1 })
+      .populate('hotelId', 'name')
+      .populate('rooms.roomId', 'name type')
+      .exec();
+    const now = new Date();
+    return {
+      upcoming: bookings.filter(
+        (b) => b.status === BookingStatus.CONFIRMED && b.checkOut > now,
+      ),
+      past: bookings
+        .filter(
+          (b) =>
+            b.status === BookingStatus.COMPLETED ||
+            (b.status === BookingStatus.CONFIRMED && b.checkOut <= now),
+        )
+        .reverse(),
+      cancelled: bookings.filter((b) => b.status === BookingStatus.CANCELLED),
+    };
+  }
+
+  // HTL-20: full details of one of the user's own reservations
+  async findMine(userId: string, id: string) {
+    const booking = isValidObjectId(id)
+      ? await this.bookingModel
+          .findOne({ _id: id, userId })
+          .populate('hotelId', 'name address checkInTime checkOutTime')
+          .populate('rooms.roomId', 'name type')
+          .exec()
+      : null;
+    // someone else's reservation is reported as not found, never as forbidden
+    if (!booking) {
+      throw new NotFoundException('Reservation not found');
+    }
     return booking;
   }
 
