@@ -208,3 +208,15 @@ Write an endpoint for moderators to export a CSV of passengers for a flight. Sin
 How the output was used:
 Added the GET /api/flights/:id/passengers/export endpoint with @Header decorators for text/csv. Used mock data to verify the CSV generation works correctly in Swagger.
 ================================================
+
+================================================
+Date: 2026-11-11
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-19, FLT-22, FLT-23, FLT-25, FLT-26
+Prompt:
+I'm member 3, help me set up the repo, review Member 2's flights module, and implement the FlightBooking Mongoose schema (user, segments, passengers, status, holdExpiresAt,
+total price, unique reference, policiesAcceptedAt).
+How the output was used:
+Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it compiles, and committed it on feature/FLT-22-flight-booking-schema.
+================================================
