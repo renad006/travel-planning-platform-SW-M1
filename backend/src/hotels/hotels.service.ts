@@ -16,6 +16,7 @@ import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
 import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
 import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
+import { parseStay } from '../common/utils/stay.util';
 import {
     buildPaginatedResponse,
     getSkip,
@@ -218,21 +219,6 @@ export class HotelsService {
         );
     }
 
-    // HTL-11 / HTL-15: check-out after check-in, and check-in not in the past
-    private parseStay(checkInText: string, checkOutText: string) {
-        const checkIn = new Date(checkInText);
-        const checkOut = new Date(checkOutText);
-        if (checkOut <= checkIn) {
-            throw new BadRequestException('Check-out must be after check-in');
-        }
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
-        if (checkIn < today) {
-            throw new BadRequestException('Check-in cannot be in the past');
-        }
-        return { checkIn, checkOut };
-    }
-
     // Rooms that are bookable, not blocked and not reserved for the whole stay
     private async freeRooms(rooms: RoomDocument[], checkIn: Date, checkOut: Date) {
         const roomIds = rooms.map((r) => r._id);
@@ -289,7 +275,7 @@ export class HotelsService {
     }
 
     async availableRooms(hotelId: string, query: RoomsAvailableQueryDto) {
-        const { checkIn, checkOut } = this.parseStay(query.checkIn, query.checkOut);
+        const { checkIn, checkOut } = parseStay(query.checkIn, query.checkOut);
         const hotel = await this.hotelModel.findOne({ _id: hotelId, isActive: true });
         if (!hotel) {
             throw new NotFoundException('Hotel not found');
@@ -312,7 +298,7 @@ export class HotelsService {
         if (!query.cityId && !query.countryCode) {
             throw new BadRequestException('Provide a cityId or a countryCode');
         }
-        const { checkIn, checkOut } = this.parseStay(query.checkIn, query.checkOut);
+        const { checkIn, checkOut } = parseStay(query.checkIn, query.checkOut);
 
         const hotels = await this.hotelModel
             .find({
