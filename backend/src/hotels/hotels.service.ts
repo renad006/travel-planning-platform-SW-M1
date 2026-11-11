@@ -15,6 +15,7 @@ import { RoomBlock, RoomBlockDocument } from './schemas/room-block.schema';
 import { RoomStatusQueryDto } from './dto/room-status-query.dto';
 import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
 import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
+import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
 import {
     buildPaginatedResponse,
     getSkip,
@@ -267,6 +268,24 @@ export class HotelsService {
         return rooms.filter(
             (r) => coveredSet.has(r.id as string) && !unavailable.has(r.id as string),
         );
+    }
+
+    async details(id: string, query: HotelDetailsQueryDto) {
+        if (!query.checkIn !== !query.checkOut) {
+            throw new BadRequestException('Provide both checkIn and checkOut');
+        }
+        const hotel = await this.hotelModel.findOne({ _id: id, isActive: true });
+        if (!hotel) {
+            throw new NotFoundException('Hotel not found');
+        }
+        if (!query.checkIn || !query.checkOut) {
+            return hotel.toJSON();
+        }
+        const availableRooms = await this.availableRooms(id, {
+            checkIn: query.checkIn,
+            checkOut: query.checkOut,
+        });
+        return { ...hotel.toJSON(), availableRooms };
     }
 
     async availableRooms(hotelId: string, query: RoomsAvailableQueryDto) {
