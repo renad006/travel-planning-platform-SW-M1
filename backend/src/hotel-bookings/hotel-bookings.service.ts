@@ -86,7 +86,12 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
     await this.lockModel.deleteMany({ bookingId: { $in: ids } });
   }
 
-  // HTL-17: the payment code calls this once the payment is verified
+  // HTL-17, written by Member 4. Member 5 (payments): call this from your payment
+  // code once Stripe has verified a hotel payment (HotelBookingsModule exports this
+  // service). It sets the reservation to Confirmed, generates the booking reference
+  // and notifies the user. It throws a 409 if the reservation is not Pending Payment
+  // or its 10-minute hold has expired. If a payment fails or expires, do nothing:
+  // the expiry timer below releases the rooms.
   async confirm(bookingId: string) {
     // shortcut: a random 10-hex reference, a clash is rejected by the unique index, not retried
     const reference = `HTL-${randomBytes(5).toString('hex').toUpperCase()}`;
