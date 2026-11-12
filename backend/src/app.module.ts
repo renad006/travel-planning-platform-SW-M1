@@ -14,6 +14,8 @@ import { HotelsModule } from './hotels/hotels.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
+import { FlightsModule } from './flights/flights.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -29,7 +31,9 @@ import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
     AuditModule,
     NotificationsModule,
     ReferenceDataModule,
+    FlightsModule,
     HotelsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
