@@ -272,3 +272,18 @@ Created the enums file and four schema files inside backend/src/payments,
 checked that npm run build passes, and committed them to
 feature/PAY-01-payment-schemas.
 ================================================================================
+================================================================================
+Date: 2026-11-12
+Student: Malak
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Read Member 3 flight-booking schema and write the booking contract that
+Payments needs from the flight and hotel booking modules: a PayableBooking
+shape plus findPayable, confirmAfterPayment, expireHold and
+markPoliciesAccepted, and injection tokens for each booking module.
+How the output was used:
+Added payable-booking.interface.ts inside backend/src/payments, checked the
+build, and will share it with Members 3 and 4 so their services match what
+the payment webhook and refund code will call.
+================================================================================
