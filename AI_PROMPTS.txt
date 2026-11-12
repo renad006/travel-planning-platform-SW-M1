@@ -100,111 +100,148 @@ Created the schema, service, global module and a unit test; other members will c
 ================================================
 
 ================================================
-Date: 2026-11-08
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
-Related Requirement: Setup & Integration (FLT Module)
+Related Requirement: FLT-01, FLT-02
+
 Prompt:
-I am Member 2 (Airlines & Flights). Help me set up the FlightsModule, register it in app.module.ts, and fix the import paths for Member 1's shared decorators (Public, Roles, CurrentUser) and the Airport schema.
+Review my Airlines & Flights backend module (schemas, DTOs, controller,
+service, module) against the project requirements sheet and the official
+PDF. Check airline creation, airport listing, and logo upload for every
+business rule, and tell me exactly what's missing or wrong.
+
 How the output was used:
-Created the module structure, updated app.module.ts, and used VS Code auto-import to correctly link Member 1's files. Fixed the double /api/api path issue in Swagger. Verified the server starts with 0 errors.
+Used the review to confirm airline creation (admin-only), airport listing
+with search/country/city filters, and ownership checks on
+PATCH /api/airlines/:id were implemented correctly. Fixed inconsistent
+error handling in updateAirline (was returning 400 for every error,
+including duplicate-key conflicts which should be 409).
 ================================================
 
 ================================================
-Date: 2026-11-08
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
-Related Requirement: FLT-01, FLT-08, FLT-09
+Related Requirement: GEN-08
+
 Prompt:
-Write the Mongoose schema and NestJS CRUD endpoints for Airlines. Include embedded baggage and cancellation policies, an isActive boolean defaulting to true, and role guards so only Admins can create airlines and Moderators can only edit their assigned airline.
+Check my airline logo upload endpoint against GEN-08 (JPG/PNG only,
+max 5 MB, one logo per airline, served by URL). Is checking the MIME
+type from the client enough, or do I need to validate the file itself?
+
 How the output was used:
-Created airline.schema.ts, DTOs, and PUT endpoints for policies. Tested in Swagger: normal user gets 403 Forbidden, Admin gets 201 Created.
+Learned that a client-supplied MIME type can be spoofed, so added a
+file-signature check (PNG/JPEG magic bytes) in the service layer in
+addition to the Multer fileFilter. Also discovered the uploads folder
+was never registered as a static asset in main.ts, so logo URLs would
+404 - flagged this to the teammate who owns main.ts.
 ================================================
 
 ================================================
-Date: 2026-11-08
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
-Related Requirement: FLT-03, FLT-05, FLT-06
+Related Requirement: FLT-03
+
 Prompt:
-Write the Flight schema (storing times in UTC and using a Scheduled/Cancelled/Departed enum) and the controller/service methods to create, update, and cancel flights.
+My create-flight endpoint takes local departure/arrival times and must
+store them in UTC using each airport's IANA time zone (from the seeded
+Airports.csv). Review my implementation for correctness, and check the
+duplicate-flight-number rule: no duplicate flight number for the same
+airline on the same departure date.
+
 How the output was used:
-Built flight.schema.ts and flight endpoints. Ensured that only the assigned Airline Moderator or Admin can cancel or update a flight.
+Used Luxon's DateTime.fromISO with the airport's zone to convert local
+time to UTC correctly, and added a departureLocalDate field + compound
+unique index (airlineId + flightNumber + departureLocalDate) to enforce
+the duplicate rule. Fixed a bug where "MS 777" and "MS777" were treated
+as different flight numbers by normalizing (stripping spaces/dashes)
+before the uniqueness check.
 ================================================
 
 ================================================
-Date: 2026-11-08
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
-Related Requirement: FLT-04, FLT-22 (Concurrency)
+Related Requirement: FLT-04, FLT-08, FLT-09
+
 Prompt:
-How can I implement atomic seat updates for Cabin Inventory so that two users cannot book the last seat at the same time, and an admin cannot reduce totalSeats below the number of held and booked seats?
+Check my cabin inventory schema (FLT-04: fixed cabin categories, seats,
+price, free bags, max bag weight) and my airline baggage/cancellation
+policy schemas (FLT-08: extra bag price and max extra bags; FLT-09:
+cancellation tiers by days-before-departure with refund percentage,
+using the highest applicable threshold). Confirm the refund calculation
+logic is correct.
+
 How the output was used:
-Created the CabinInventory schema as a separate collection. Used Mongoose findOneAndUpdate with $expr: { $gte: [...] } to ensure atomic updates that reject invalid seat reductions.
+Confirmed the unique index on (flightId, cabinClass) correctly enforces
+"each cabin category used at most once per flight". Implemented and
+verified pickRefundPercentage(): picks the tier with the highest
+daysBeforeDeparture that is <= days remaining, defaults to 0% if no
+tier applies.
 ================================================
 
 ================================================
-Date: 2026-11-08
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
-Related Requirement: Debugging Swagger DTOs
+Related Requirement: FLT-05, FLT-06
+
 Prompt:
-Swagger is not showing a request body box for my POST and PATCH endpoints, and returns a 400 Bad Request or 500 Internal Server Error when I execute. How do I fix this?
+Review my updateFlight and cancelFlight logic: editing a Scheduled
+flight should lock the airports once any booking exists, never let
+seat count drop below held+booked seats, and cancelling should be
+atomic and emit an event so the bookings module can refund passengers
+and release holds. Is my event-based approach between modules correct
+for a NestJS project with multiple independent schemas per team member?
+
 How the output was used:
-Realized I was using @Body() dto: any. Created proper DTO classes using class-validator (@IsNumber, @Min, etc.) and @ApiProperty from @nestjs/swagger. This fixed the Swagger UI and added input validation.
+Implemented flight.events.ts with typed event payloads
+(flight.cancelled, flight.schedule-changed, flight.departed) emitted
+via EventEmitter2, so the bookings module (owned by a teammate) can
+react without my module depending on their schema. Learned that
+EventEmitterModule.forRoot() must be registered exactly once for the
+whole app or events silently stop reaching listeners in other modules.
 ================================================
 
 ================================================
-Date: 2026-11-09
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
 Related Requirement: FLT-11, FLT-12, FLT-15
+
 Prompt:
-Write a MongoDB aggregation pipeline to search for flights. It needs to handle one-way and round-trip parameters, passenger counts, cabin class, price filters, sorting, and pagination. It must hide inactive airlines and flights without enough available seats.
+Review my flight search aggregation: one-way and round-trip, passenger
+types (adult 12+, child 2-11, infant under 2, infants pay 10% and take
+no seat, infants cannot exceed adults), optional cabin filter, inclusive
+min/max price filter, sorting by price/duration/departure time, and
+pagination. Check for edge cases I might have missed.
+
 How the output was used:
-Built the searchFlights method. Used $lookup to join airlines and cabin inventory, $unwind, and a custom $expr to calculate available seats. 
+Fixed missing validation: infants > adults now correctly returns 400,
+minPrice > maxPrice returns 400, and a search with no results returns
+200 with an empty array and a "No flights found" message instead of
+an error. Confirmed available seats are computed as
+totalSeats - heldSeats - bookedSeats everywhere, never stored directly,
+so holds and bookings can never collectively exceed capacity.
 ================================================
 
 ================================================
-Date: 2026-11-09
+Date: 2026-11-11
 Student: Arwa
 Tool: Claude
-Related Requirement: Debugging MongoDB Aggregation
-Prompt:
-My flight search returns an empty array [] even though the flight exists in the database. How do I debug the $lookup stage?
-How the output was used:
-Learned that MongoDB $lookup collection names are strictly case-sensitive. Checked MongoDB Atlas and corrected the collection name to match the exact pluralization (e.g., cabininventories). Also fixed the match stage to include origin and destination.
-================================================
+Related Requirement: FLT-30
 
-================================================
-Date: 2026-11-09
-Student: Arwa
-Tool: Claude
-Related Requirement: FLT-17 (Time Zones)
 Prompt:
-How do I handle airport time zones? The database stores times in UTC, but the response needs to show the local time for the departure and arrival airports.
-How the output was used:
-Used Intl.DateTimeFormat in a helper method. Fetched the Airport schema from Member 1, mapped the time zones, and enriched the responses with departureTimeLocal and arrivalTimeLocal.
-================================================
+I have a @Cron job that should mark Scheduled flights as Departed once
+their departure time passes, but it doesn't seem to run. What am I
+missing in a NestJS project?
 
-================================================
-Date: 2026-11-09
-Student: Arwa
-Tool: Claude
-Related Requirement: TypeScript Compilation Error
-Prompt:
-I am getting a TS1272 error: "A type referenced in a decorated signature must be imported with 'import type'".
 How the output was used:
-Fixed the error in flights.controller.ts by changing import { Response } from 'express' to import type { Response } from 'express'.
-================================================
-
-================================================
-Date: 2026-11-09
-Student: Arwa
-Tool: Claude
-Related Requirement: FLT-29 (Passenger Export)
-Prompt:
-Write an endpoint for moderators to export a CSV of passengers for a flight. Since Member 3 hasn't finished the FlightBooking schema yet, mock the data for now and use Express @Res to download the file.
-How the output was used:
-Added the GET /api/flights/:id/passengers/export endpoint with @Header decorators for text/csv. Used mock data to verify the CSV generation works correctly in Swagger.
+Found that ScheduleModule.forRoot() was never imported anywhere in the
+app, so @Cron decorators were silently ignored (no error). Added
+ScheduleModule.forRoot() to my own FlightsModule (since I'm not allowed
+to edit the shared app.module.ts) and confirmed the cron job now runs
+every minute.
 ================================================
