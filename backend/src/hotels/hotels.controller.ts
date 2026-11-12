@@ -97,5 +97,4 @@ export class HotelsController {
     roomStatuses(@Param('id') id: string, @Query() query: RoomStatusQueryDto) {
         return this.hotelsService.roomStatuses(id, query);
     }
-
 }

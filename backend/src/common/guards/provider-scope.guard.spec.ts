@@ -52,4 +52,11 @@ describe('ProviderScopeGuard', () => {
       guard.canActivate(ctx({ role: Role.USER }, 'airline-1')),
     ).toThrow(ForbiddenException);
   });
+
+  it('allows an admin on any provider', () => {
+    expect(guard.canActivate(ctx({ role: Role.ADMIN }, 'airline-2'))).toBe(
+      true,
+    );
+  });
 });
+
