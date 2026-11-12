@@ -98,6 +98,26 @@ Write a global AuditService with a schema (actor, role, action, target, metadata
 How the output was used:
 Created the schema, service, global module and a unit test; other members will call auditService.log() for refunds, moderation and admin actions.
 ================================================
+================================================
+Date: 2026-11-11
+Student: Renad
+Tool: Claude
+Related Requirement: Project-wide setup (Member 1); GEN-12, ACC, GEN-07
+Prompt:
+Role: senior NestJS + Mongoose engineer. Milestone 1 backend, graded via Swagger.
+Stack: NestJS, TS, @nestjs/mongoose, passport-jwt, bcrypt, class-validator, cookie-parser, @nestjs/swagger.
+Rules:
+- Follow pasted requirement text exactly. No invented limits. Ask only if truly ambiguous.
+- Backend enforces all validation/authz.
+- JWT (access + refresh) only in httpOnly/Secure/SameSite cookies. Never in body.
+- Global JwtAuthGuard, @Public() opt-out, loads user from DB each request, rejects suspended/deactivated.
+- Never return password hash. bcrypt only.
+- Error shape: {statusCode, message, error, timestamp, path}.
+- Admin actions -> AuditService.log(). Moderation/suspension/provider events -> NotificationsService.notify().
+- Swagger: @ApiTags, @ApiProperty on DTO fields, @ApiCookieAuth, response codes, requirement IDs in descriptions.
+How the output was used:
+Saved as the standing instructions of my Claude Project so every Member 1 task follows the same rules. Used it to add the Country, City and Attraction schemas and idempotent seeds from the real mock CSVs next to the existing Airport seed.
+================================================
 
 ================================================
 Date: 2026-11-08
