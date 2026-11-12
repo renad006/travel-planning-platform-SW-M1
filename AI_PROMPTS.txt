@@ -243,7 +243,7 @@ Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it
 
 ================================================================================
 Date: 2026-11-11
-Student: Malak
+Student: Malak Haytham
 Tool: Claude
 Related Requirement: Team leader review (all members), PAY-01
 Prompt:
@@ -259,7 +259,7 @@ only has HTL-01, and no booking, admin or payment code exists yet.
 
 ================================================================================
 Date: 2026-11-11
-Student: Malak
+Student: Malak Haytham
 Tool: Claude
 Related Requirement: PAY-01, PAY-02, PAY-03
 Prompt:
@@ -272,9 +272,10 @@ Created the enums file and four schema files inside backend/src/payments,
 checked that npm run build passes, and committed them to
 feature/PAY-01-payment-schemas.
 ================================================================================
+
 ================================================================================
 Date: 2026-11-12
-Student: Malak
+Student: Malak Haytham
 Tool: Claude
 Related Requirement: PAY-01, PAY-02, PAY-03
 Prompt:
@@ -286,4 +287,19 @@ How the output was used:
 Added payable-booking.interface.ts inside backend/src/payments, checked the
 build, and will share it with Members 3 and 4 so their services match what
 the payment webhook and refund code will call.
+================================================================================
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ACC-14, ACC-15, ACC-16, ACC-17
+Prompt:
+Read Member 1's admin module and the hotel booking schema, then add admin
+endpoints without clashing with them: accounts list with search and filters,
+suspend and reactivate accounts, deactivate and reactivate providers, and a
+read-only list of flight and hotel bookings.
+How the output was used:
+Added admin-management service, controller and two DTOs inside backend/src/admin,
+registered them in admin.module.ts, tested the endpoints in Swagger, and
+reviewed the audit and notification calls.
 ================================================================================
