@@ -1,38 +1,41 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { FlightStatus } from '../schemas/flight.schema';
+import { Transform } from 'class-transformer';
+import { Matches } from 'class-validator';
 
+const LOCAL_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/;
+const LOCAL_MSG = 'must be a LOCAL date-time without timezone, e.g. 2026-12-20T10:00';
+const upper = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
+// "MS 777", "ms-777" and "MS777" are the same flight number -> stored as "MS777"
+// (otherwise the FLT-03 duplicate rule could be bypassed with a space or a dash)
+const flightNo = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.replace(/[\s-]/g, '').toUpperCase() : value;
+
+/**
+ * FLT-03. The airline comes from the logged-in moderator, never from the body.
+ * Times are entered in each airport's LOCAL time and stored in UTC by the service.
+ */
 export class CreateFlightDto {
-  @ApiProperty({ example: 'MS-777' })
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ example: 'MS777', description: '2-8 letters/digits (spaces and dashes are removed)' })
+  @Transform(flightNo)
+  @Matches(/^[A-Z0-9]{2,8}$/, { message: 'flightNumber must be 2-8 letters/digits, e.g. MS777' })
   flightNumber: string;
 
-  @ApiProperty({ example: '6a6fc29e5ec1356c91724bab' })
-  @IsString()
-  @IsNotEmpty()
-  airlineId: string;
-
-  @ApiProperty({ example: 'CAI' })
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ example: 'CAI', description: 'IATA code from GET /api/airports' })
+  @Transform(upper)
+  @Matches(/^[A-Z]{3}$/, { message: 'originAirport must be a 3-letter IATA code' })
   originAirport: string;
 
-  @ApiProperty({ example: 'DXB' })
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ example: 'DXB', description: 'IATA code from GET /api/airports' })
+  @Transform(upper)
+  @Matches(/^[A-Z]{3}$/, { message: 'destinationAirport must be a 3-letter IATA code' })
   destinationAirport: string;
 
-  @ApiProperty({ example: '2026-12-20T10:00:00Z' })
-  @IsDateString()
+  @ApiProperty({ example: '2026-12-20T10:00', description: 'Local time at the ORIGIN airport' })
+  @Matches(LOCAL_DATE_TIME, { message: `departureTime ${LOCAL_MSG}` })
   departureTime: string;
 
-  @ApiProperty({ example: '2026-12-20T14:00:00Z' })
-  @IsDateString()
+  @ApiProperty({ example: '2026-12-20T14:30', description: 'Local time at the DESTINATION airport' })
+  @Matches(LOCAL_DATE_TIME, { message: `arrivalTime ${LOCAL_MSG}` })
   arrivalTime: string;
-
-  @ApiProperty({ example: 'Scheduled', required: false })
-  @IsOptional()
-  @IsEnum(FlightStatus)
-  status?: FlightStatus;
 }
