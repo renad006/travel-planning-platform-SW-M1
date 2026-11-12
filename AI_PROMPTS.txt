@@ -220,3 +220,35 @@ total price, unique reference, policiesAcceptedAt).
 How the output was used:
 Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it compiles, and committed it on feature/FLT-22-flight-booking-schema.
 ================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak
+Tool: Claude
+Related Requirement: Team leader review (all members), PAY-01
+Prompt:
+I am Member 5 and team leader. Give me CMD commands to pull the latest
+develop and list the project state (branches, commits, routes, requirement
+IDs in code) so I can see which requirements are finished before I start
+my own part.
+How the output was used:
+Ran the commands, pasted the output back, and used the summary to see that
+auth, users, notifications, audit, seeds and flights are merged, hotels
+only has HTL-01, and no booking, admin or payment code exists yet.
+================================================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Using the shared code (User schema, enums, AuditService, NotificationsService,
+pagination helpers, Airline and Hotel schemas), write the Mongoose schemas
+for payments: Payment, Refund, PolicyAcceptance and ProcessedStripeEvent.
+Store no card data, only Stripe IDs, amount, currency and status.
+How the output was used:
+Created the enums file and four schema files inside backend/src/payments,
+checked that npm run build passes, and committed them to
+feature/PAY-01-payment-schemas.
+================================================================================
