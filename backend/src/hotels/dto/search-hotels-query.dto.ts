@@ -77,6 +77,7 @@ export class SearchHotelsQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({
     enum: ['price', 'rating'],
+    example: 'price', // replaces the example inherited from PaginationQueryDto
     description: 'Omit to sort by hotel name',
   })
   @IsOptional()
