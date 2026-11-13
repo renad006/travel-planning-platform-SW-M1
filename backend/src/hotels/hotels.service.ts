@@ -22,6 +22,8 @@ import {
     buildPaginatedResponse,
     getSkip,
 } from '../common/utils/pagination.helper';
+import { UpdatePoliciesDto } from './dto/update-policies.dto';
+
 @Injectable()
 export class HotelsService {
     constructor(
@@ -378,5 +380,25 @@ export class HotelsService {
             .slice(getSkip(query), getSkip(query) + query.limit)
             .map(({ hotel, cheapestPrice }) => ({ ...hotel.toJSON(), cheapestPrice }));
         return buildPaginatedResponse(items, matching.length, query);
+    }
+
+    async setPolicies(id: string, dto: UpdatePoliciesDto) {
+        const thresholds = dto.cancellationTiers.map((t) => t.daysBefore);
+        if (new Set(thresholds).size !== thresholds.length) {
+            throw new BadRequestException(
+                'Each cancellation tier needs a unique days-before threshold',
+            );
+        }
+        const hotel = await this.hotelModel
+            .findByIdAndUpdate(
+                id,
+                { cancellationTiers: dto.cancellationTiers },
+                { returnDocument: 'after' },
+            )
+            .exec();
+        if (!hotel) {
+            throw new NotFoundException('Hotel not found');
+        }
+        return hotel;
     }
 }

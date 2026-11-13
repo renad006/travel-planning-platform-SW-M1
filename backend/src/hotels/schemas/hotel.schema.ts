@@ -53,6 +53,19 @@ export class Hotel {
 
     @Prop({ default: 0 })
     ratingCount: number;
+
+    // HTL-10: refund tiers, applied like FLT-09
+    @Prop({
+        type: [
+        {
+            _id: false,
+            daysBefore: { type: Number, required: true, min: 0 },
+            refundPercent: { type: Number, required: true, min: 0, max: 100 },
+        },
+        ],
+        default: [],
+    })
+    cancellationTiers: { daysBefore: number; refundPercent: number }[];
 }
 
 export const HotelSchema = SchemaFactory.createForClass(Hotel);
