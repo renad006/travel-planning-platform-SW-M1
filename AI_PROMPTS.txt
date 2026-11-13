@@ -352,6 +352,20 @@ How the output was used:
 Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it compiles, and committed it on feature/FLT-22-flight-booking-schema.
 ================================================
 
+================================================
+Date: 2026-11-12
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-19, FLT-21, FLT-12
+Prompt:
+Design and implement the flight booking summary: validate passengers (type vs date of birth,
+at least one adult, infants <= adults), extra baggage limits from the airline policy, and
+compute the booking price on the server in integer cents.
+How the output was used:
+Reviewed the pure business rules and their unit tests, the DTOs and the quote endpoint
+(POST /flight-bookings). Checked every validation case in Swagger before pushing.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham

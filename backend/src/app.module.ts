@@ -17,6 +17,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
 import { FlightsModule } from './flights/flights.module';
+import { FlightBookingsModule } from './flight-bookings/flight-bookings.module';
 import { AdminModule } from './admin/admin.module';
 
 @Module({
@@ -34,6 +35,7 @@ import { AdminModule } from './admin/admin.module';
     NotificationsModule,
     ReferenceDataModule,
     FlightsModule,
+    FlightBookingsModule,
     HotelsModule,
     HotelBookingsModule,
     AdminModule,

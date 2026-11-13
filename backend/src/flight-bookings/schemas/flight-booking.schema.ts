@@ -2,33 +2,13 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import { BookingStatus } from '../../common/enums/booking-status.enum';
 import { CabinClass } from '../../flights/schemas/cabin-inventory.schema';
+import { CancelledBy, PassengerType, SegmentDirection, TripType } from './flight-booking.enums';
+
+// re-exported so existing imports from this file keep working
+export { CancelledBy, PassengerType, SegmentDirection, TripType };
 
 export type FlightBookingDocument = HydratedDocument<FlightBooking>;
 
-
-/** FLT-12a: a round trip is ONE booking with two segments. */
-export enum TripType {
-  ONE_WAY = 'one_way',
-  ROUND_TRIP = 'round_trip',
-}
-
-export enum SegmentDirection {
-  OUTBOUND = 'outbound',
-  RETURN = 'return',
-}
-
-/** FLT-12b: adult 12+, child 2-11, infant <2 (computed from date of birth). */
-export enum PassengerType {
-  ADULT = 'adult',
-  CHILD = 'child',
-  INFANT = 'infant',
-}
-
-/** Who cancelled: the user (FLT-26) or the airline (FLT-06, always 100% refund). */
-export enum CancelledBy {
-  USER = 'user',
-  AIRLINE = 'airline',
-}
 
 /**
  * A booking has 1 segment (one-way) or 2 (round trip). Bounded and owned by the
