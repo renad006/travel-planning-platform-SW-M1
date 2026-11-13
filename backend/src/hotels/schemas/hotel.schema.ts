@@ -34,6 +34,13 @@ export class Hotel {
     @Prop({ type: [String], default: [] })
     amenities: string[];
 
+    // HTL-09: standard times as 24-hour HH:mm, set by the hotel moderator
+    @Prop({ match: /^([01]\d|2[0-3]):[0-5]\d$/ })
+    checkInTime?: string;
+
+    @Prop({ match: /^([01]\d|2[0-3]):[0-5]\d$/ })
+    checkOutTime?: string;
+
     // ACC-15: inactive hotels are hidden from search and cannot be booked
     @Prop({ default: true })
     isActive: boolean;

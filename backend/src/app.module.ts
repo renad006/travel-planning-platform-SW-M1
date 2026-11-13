@@ -11,10 +11,12 @@ import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReferenceDataModule } from './reference-data/reference-data.module';
 import { HotelsModule } from './hotels/hotels.module';
+import { HotelBookingsModule } from './hotel-bookings/hotel-bookings.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
 import { FlightsModule } from './flights/flights.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { FlightsModule } from './flights/flights.module';
     ReferenceDataModule,
     FlightsModule,
     HotelsModule,
+    HotelBookingsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

@@ -30,6 +30,9 @@ export class ProviderScopeGuard implements CanActivate {
       .switchToHttp()
       .getRequest<Request & { user?: UserDocument }>();
     const user = request.user;
+    if (user?.role === Role.ADMIN) {
+      return true; // admins can manage any provider
+    }
     const providerId = String(request.params[scope.param]);
 
     const expectedRole =

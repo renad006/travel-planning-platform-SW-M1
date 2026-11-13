@@ -98,6 +98,26 @@ Write a global AuditService with a schema (actor, role, action, target, metadata
 How the output was used:
 Created the schema, service, global module and a unit test; other members will call auditService.log() for refunds, moderation and admin actions.
 ================================================
+================================================
+Date: 2026-11-11
+Student: Renad
+Tool: Claude
+Related Requirement: Project-wide setup (Member 1); GEN-12, ACC, GEN-07
+Prompt:
+Role: senior NestJS + Mongoose engineer. Milestone 1 backend, graded via Swagger.
+Stack: NestJS, TS, @nestjs/mongoose, passport-jwt, bcrypt, class-validator, cookie-parser, @nestjs/swagger.
+Rules:
+- Follow pasted requirement text exactly. No invented limits. Ask only if truly ambiguous.
+- Backend enforces all validation/authz.
+- JWT (access + refresh) only in httpOnly/Secure/SameSite cookies. Never in body.
+- Global JwtAuthGuard, @Public() opt-out, loads user from DB each request, rejects suspended/deactivated.
+- Never return password hash. bcrypt only.
+- Error shape: {statusCode, message, error, timestamp, path}.
+- Admin actions -> AuditService.log(). Moderation/suspension/provider events -> NotificationsService.notify().
+- Swagger: @ApiTags, @ApiProperty on DTO fields, @ApiCookieAuth, response codes, requirement IDs in descriptions.
+How the output was used:
+Saved as the standing instructions of my Claude Project so every Member 1 task follows the same rules. Used it to add the Country, City and Attraction schemas and idempotent seeds from the real mock CSVs next to the existing Airport seed.
+================================================
 
 ================================================
 Date: 2026-11-11
@@ -239,9 +259,100 @@ their departure time passes, but it doesn't seem to run. What am I
 missing in a NestJS project?
 
 How the output was used:
+
 Found that ScheduleModule.forRoot() was never imported anywhere in the
 app, so @Cron decorators were silently ignored (no error). Added
 ScheduleModule.forRoot() to my own FlightsModule (since I'm not allowed
 to edit the shared app.module.ts) and confirmed the cron job now runs
 every minute.
 ================================================
+=======
+Fixed the error in flights.controller.ts by changing import { Response } from 'express' to import type { Response } from 'express'.
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-29 (Passenger Export)
+Prompt:
+Write an endpoint for moderators to export a CSV of passengers for a flight. Since Member 3 hasn't finished the FlightBooking schema yet, mock the data for now and use Express @Res to download the file.
+How the output was used:
+Added the GET /api/flights/:id/passengers/export endpoint with @Header decorators for text/csv. Used mock data to verify the CSV generation works correctly in Swagger.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-19, FLT-22, FLT-23, FLT-25, FLT-26
+Prompt:
+I'm member 3, help me set up the repo, review Member 2's flights module, and implement the FlightBooking Mongoose schema (user, segments, passengers, status, holdExpiresAt,
+total price, unique reference, policiesAcceptedAt).
+How the output was used:
+Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it compiles, and committed it on feature/FLT-22-flight-booking-schema.
+================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: Team leader review (all members), PAY-01
+Prompt:
+I am Member 5 and team leader. Give me CMD commands to pull the latest
+develop and list the project state (branches, commits, routes, requirement
+IDs in code) so I can see which requirements are finished before I start
+my own part.
+How the output was used:
+Ran the commands, pasted the output back, and used the summary to see that
+auth, users, notifications, audit, seeds and flights are merged, hotels
+only has HTL-01, and no booking, admin or payment code exists yet.
+================================================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Using the shared code (User schema, enums, AuditService, NotificationsService,
+pagination helpers, Airline and Hotel schemas), write the Mongoose schemas
+for payments: Payment, Refund, PolicyAcceptance and ProcessedStripeEvent.
+Store no card data, only Stripe IDs, amount, currency and status.
+How the output was used:
+Created the enums file and four schema files inside backend/src/payments,
+checked that npm run build passes, and committed them to
+feature/PAY-01-payment-schemas.
+================================================================================
+
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Read Member 3 flight-booking schema and write the booking contract that
+Payments needs from the flight and hotel booking modules: a PayableBooking
+shape plus findPayable, confirmAfterPayment, expireHold and
+markPoliciesAccepted, and injection tokens for each booking module.
+How the output was used:
+Added payable-booking.interface.ts inside backend/src/payments, checked the
+build, and will share it with Members 3 and 4 so their services match what
+the payment webhook and refund code will call.
+================================================================================
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ACC-14, ACC-15, ACC-16, ACC-17
+Prompt:
+Read Member 1's admin module and the hotel booking schema, then add admin
+endpoints without clashing with them: accounts list with search and filters,
+suspend and reactivate accounts, deactivate and reactivate providers, and a
+read-only list of flight and hotel bookings.
+How the output was used:
+Added admin-management service, controller and two DTOs inside backend/src/admin,
+registered them in admin.module.ts, tested the endpoints in Swagger, and
+reviewed the audit and notification calls.
+================================================================================
+
