@@ -69,21 +69,21 @@ export class SearchFlightsDto extends PaginationDto {
   @IsEnum(CabinClass)
   cabinClass?: CabinClass;
 
-  @ApiPropertyOptional({ example: 100, description: 'Inclusive minimum fare per adult/child' })
+  @ApiPropertyOptional({ description: 'Inclusive minimum fare per adult/child' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   minPrice?: number;
 
-  @ApiPropertyOptional({ example: 500, description: 'Inclusive maximum fare per adult/child' })
+  @ApiPropertyOptional({ description: 'Inclusive maximum fare per adult/child' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   maxPrice?: number;
 
-  @ApiPropertyOptional({ example: '6a6fc29e5ec1356c91724bab' })
+  @ApiPropertyOptional({ description: 'Filter by a specific airline ID' })
   @IsOptional()
   @IsMongoId()
   airlineId?: string;
