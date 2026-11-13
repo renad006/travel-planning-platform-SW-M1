@@ -145,8 +145,8 @@ export class FlightsController {
 
   // ---------------- FLT-03 / FLT-05 / FLT-06 Flights ----------------
   @Post('flights')
-  @Roles(Role.AIRLINE_MODERATOR)
-  @ApiOperation({ summary: 'FLT-03: create a flight (times are LOCAL to each airport, stored as UTC)' })
+  @Roles(Role.ADMIN, Role.AIRLINE_MODERATOR)
+  @ApiOperation({ summary: 'FLT-03: create a flight (moderator: own airline; admin: must send airlineId). Times are LOCAL to each airport, stored as UTC' })
   createFlight(@Body() dto: CreateFlightDto, @CurrentUser() user: AuthUser) {
     return this.flightsService.createFlight(dto, user);
   }

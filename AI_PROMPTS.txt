@@ -266,7 +266,7 @@ ScheduleModule.forRoot() to my own FlightsModule (since I'm not allowed
 to edit the shared app.module.ts) and confirmed the cron job now runs
 every minute.
 ================================================
-=======
+
 Fixed the error in flights.controller.ts by changing import { Response } from 'express' to import type { Response } from 'express'.
 ================================================
 
@@ -280,7 +280,23 @@ Write an endpoint for moderators to export a CSV of passengers for a flight. Sin
 How the output was used:
 Added the GET /api/flights/:id/passengers/export endpoint with @Header decorators for text/csv. Used mock data to verify the CSV generation works correctly in Swagger.
 ================================================
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-29
 
+Prompt:
+My flights.controller.ts fails to compile on the passenger CSV export
+endpoint: the Response type from 'express' gives an error when used with
+@Res(). How do I fix it?
+
+How the output was used:
+Fixed the error by changing import { Response } from 'express' to
+import type { Response } from 'express', because Response is only used
+as a type there and the project's TypeScript settings require type-only
+imports for that.
+================================================
 ================================================
 Date: 2026-11-11
 Student: Suha 

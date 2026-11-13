@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { Matches } from 'class-validator';
+import { IsMongoId, IsOptional, Matches } from 'class-validator';
 
 const LOCAL_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/;
 const LOCAL_MSG = 'must be a LOCAL date-time without timezone, e.g. 2026-12-20T10:00';
@@ -12,10 +12,20 @@ const flightNo = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.replace(/[\s-]/g, '').toUpperCase() : value;
 
 /**
- * FLT-03. The airline comes from the logged-in moderator, never from the body.
+ * FLT-03. For an Airline Moderator the airline comes from their own assignment and
+ * `airlineId` below is ignored even if sent. Only an Admin may (and must) send
+ * `airlineId` explicitly, per the team's role plan.
  * Times are entered in each airport's LOCAL time and stored in UTC by the service.
  */
 export class CreateFlightDto {
+  @ApiPropertyOptional({
+    description: 'Admin only: which airline this flight belongs to. Ignored for moderators.',
+    example: '6af42363fcdac02530528a6d',
+  })
+  @IsOptional()
+  @IsMongoId()
+  airlineId?: string;
+
   @ApiProperty({ example: 'MS777', description: '2-8 letters/digits (spaces and dashes are removed)' })
   @Transform(flightNo)
   @Matches(/^[A-Z0-9]{2,8}$/, { message: 'flightNumber must be 2-8 letters/digits, e.g. MS777' })
