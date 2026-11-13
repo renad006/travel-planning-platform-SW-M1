@@ -35,4 +35,24 @@ export class HotelBookingsController {
   findMine(@CurrentUser() user: UserDocument, @Param('id') id: string) {
     return this.bookingsService.findMine(user.id, id);
   }
+
+  // shortcut: test-only helpers so bookings can be confirmed or completed without
+  // Stripe in Swagger. Delete both routes (and their service methods) before submission.
+  @Post(':id/test-confirm')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'TEST ONLY: confirm a pending reservation as if payment succeeded',
+  })
+  testConfirm(@Param('id') id: string) {
+    return this.bookingsService.testConfirm(id);
+  }
+
+  @Post(':id/test-complete')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'TEST ONLY: mark a confirmed reservation as Completed (for reviews)',
+  })
+  testComplete(@Param('id') id: string) {
+    return this.bookingsService.testComplete(id);
+  }
 }

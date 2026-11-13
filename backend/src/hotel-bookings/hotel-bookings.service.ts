@@ -8,7 +8,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, isValidObjectId, Model } from 'mongoose';
+import { Connection, isValidObjectId, Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { BookingType } from '../payments/enums/payment.enums';
@@ -68,7 +68,46 @@ export class HotelBookingsService
       this.expireHolds().catch((e: unknown) =>
         this.logger.error('Could not expire holds', e),
       );
+      this.completeStays().catch((e: unknown) =>
+        this.logger.error('Could not complete stays', e),
+      );
     }, EXPIRY_CHECK_MS);
+  }
+
+  // A Confirmed reservation whose check-out day has passed becomes Completed
+  // (Member 5's reviews, HTL-23/24, only accept Completed stays).
+  async completeStays() {
+    await this.bookingModel.updateMany(
+      { status: BookingStatus.CONFIRMED, checkOut: { $lt: new Date() } },
+      { status: BookingStatus.COMPLETED },
+    );
+  }
+
+  // TEST ONLY: same path the payment webhook uses, with a made-up payment id
+  async testConfirm(id: string) {
+    const confirmed = await this.confirmAfterPayment(
+      id,
+      new Types.ObjectId().toString(),
+    );
+    if (!confirmed) {
+      throw new ConflictException('This reservation is not awaiting payment');
+    }
+    return this.bookingModel.findById(id);
+  }
+
+  // TEST ONLY: skip the wait for check-out so reviews can be tested right away
+  async testComplete(id: string) {
+    const booking = isValidObjectId(id)
+      ? await this.bookingModel.findOneAndUpdate(
+          { _id: id, status: BookingStatus.CONFIRMED },
+          { status: BookingStatus.COMPLETED },
+          { returnDocument: 'after' },
+        )
+      : null;
+    if (!booking) {
+      throw new ConflictException('This reservation is not confirmed');
+    }
+    return booking;
   }
 
   onModuleDestroy() {
