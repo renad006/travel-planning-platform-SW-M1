@@ -6,6 +6,7 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
+    Matches,
     Max,
     MaxLength,
     Min,
@@ -61,4 +62,18 @@ export class CreateHotelDto {
     @IsArray()
     @IsString({ each: true })
     amenities?: string[];
+
+    @ApiPropertyOptional({ example: '14:00', description: '24-hour HH:mm' })
+    @IsOptional()
+    @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+        message: 'Check-in time must be in HH:mm format',
+    })
+    checkInTime?: string;
+
+    @ApiPropertyOptional({ example: '12:00', description: '24-hour HH:mm' })
+    @IsOptional()
+    @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+        message: 'Check-out time must be in HH:mm format',
+    })
+    checkOutTime?: string;
 }

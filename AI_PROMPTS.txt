@@ -98,3 +98,208 @@ Write a global AuditService with a schema (actor, role, action, target, metadata
 How the output was used:
 Created the schema, service, global module and a unit test; other members will call auditService.log() for refunds, moderation and admin actions.
 ================================================
+================================================
+Date: 2026-11-11
+Student: Renad
+Tool: Claude
+Related Requirement: Project-wide setup (Member 1); GEN-12, ACC, GEN-07
+Prompt:
+Role: senior NestJS + Mongoose engineer. Milestone 1 backend, graded via Swagger.
+Stack: NestJS, TS, @nestjs/mongoose, passport-jwt, bcrypt, class-validator, cookie-parser, @nestjs/swagger.
+Rules:
+- Follow pasted requirement text exactly. No invented limits. Ask only if truly ambiguous.
+- Backend enforces all validation/authz.
+- JWT (access + refresh) only in httpOnly/Secure/SameSite cookies. Never in body.
+- Global JwtAuthGuard, @Public() opt-out, loads user from DB each request, rejects suspended/deactivated.
+- Never return password hash. bcrypt only.
+- Error shape: {statusCode, message, error, timestamp, path}.
+- Admin actions -> AuditService.log(). Moderation/suspension/provider events -> NotificationsService.notify().
+- Swagger: @ApiTags, @ApiProperty on DTO fields, @ApiCookieAuth, response codes, requirement IDs in descriptions.
+How the output was used:
+Saved as the standing instructions of my Claude Project so every Member 1 task follows the same rules. Used it to add the Country, City and Attraction schemas and idempotent seeds from the real mock CSVs next to the existing Airport seed.
+================================================
+
+================================================
+Date: 2026-11-08
+Student: Arwa
+Tool: Claude
+Related Requirement: Setup & Integration (FLT Module)
+Prompt:
+I am Member 2 (Airlines & Flights). Help me set up the FlightsModule, register it in app.module.ts, and fix the import paths for Member 1's shared decorators (Public, Roles, CurrentUser) and the Airport schema.
+How the output was used:
+Created the module structure, updated app.module.ts, and used VS Code auto-import to correctly link Member 1's files. Fixed the double /api/api path issue in Swagger. Verified the server starts with 0 errors.
+================================================
+
+================================================
+Date: 2026-11-08
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-01, FLT-08, FLT-09
+Prompt:
+Write the Mongoose schema and NestJS CRUD endpoints for Airlines. Include embedded baggage and cancellation policies, an isActive boolean defaulting to true, and role guards so only Admins can create airlines and Moderators can only edit their assigned airline.
+How the output was used:
+Created airline.schema.ts, DTOs, and PUT endpoints for policies. Tested in Swagger: normal user gets 403 Forbidden, Admin gets 201 Created.
+================================================
+
+================================================
+Date: 2026-11-08
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-03, FLT-05, FLT-06
+Prompt:
+Write the Flight schema (storing times in UTC and using a Scheduled/Cancelled/Departed enum) and the controller/service methods to create, update, and cancel flights.
+How the output was used:
+Built flight.schema.ts and flight endpoints. Ensured that only the assigned Airline Moderator or Admin can cancel or update a flight.
+================================================
+
+================================================
+Date: 2026-11-08
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-04, FLT-22 (Concurrency)
+Prompt:
+How can I implement atomic seat updates for Cabin Inventory so that two users cannot book the last seat at the same time, and an admin cannot reduce totalSeats below the number of held and booked seats?
+How the output was used:
+Created the CabinInventory schema as a separate collection. Used Mongoose findOneAndUpdate with $expr: { $gte: [...] } to ensure atomic updates that reject invalid seat reductions.
+================================================
+
+================================================
+Date: 2026-11-08
+Student: Arwa
+Tool: Claude
+Related Requirement: Debugging Swagger DTOs
+Prompt:
+Swagger is not showing a request body box for my POST and PATCH endpoints, and returns a 400 Bad Request or 500 Internal Server Error when I execute. How do I fix this?
+How the output was used:
+Realized I was using @Body() dto: any. Created proper DTO classes using class-validator (@IsNumber, @Min, etc.) and @ApiProperty from @nestjs/swagger. This fixed the Swagger UI and added input validation.
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-11, FLT-12, FLT-15
+Prompt:
+Write a MongoDB aggregation pipeline to search for flights. It needs to handle one-way and round-trip parameters, passenger counts, cabin class, price filters, sorting, and pagination. It must hide inactive airlines and flights without enough available seats.
+How the output was used:
+Built the searchFlights method. Used $lookup to join airlines and cabin inventory, $unwind, and a custom $expr to calculate available seats. 
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: Debugging MongoDB Aggregation
+Prompt:
+My flight search returns an empty array [] even though the flight exists in the database. How do I debug the $lookup stage?
+How the output was used:
+Learned that MongoDB $lookup collection names are strictly case-sensitive. Checked MongoDB Atlas and corrected the collection name to match the exact pluralization (e.g., cabininventories). Also fixed the match stage to include origin and destination.
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-17 (Time Zones)
+Prompt:
+How do I handle airport time zones? The database stores times in UTC, but the response needs to show the local time for the departure and arrival airports.
+How the output was used:
+Used Intl.DateTimeFormat in a helper method. Fetched the Airport schema from Member 1, mapped the time zones, and enriched the responses with departureTimeLocal and arrivalTimeLocal.
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: TypeScript Compilation Error
+Prompt:
+I am getting a TS1272 error: "A type referenced in a decorated signature must be imported with 'import type'".
+How the output was used:
+Fixed the error in flights.controller.ts by changing import { Response } from 'express' to import type { Response } from 'express'.
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-29 (Passenger Export)
+Prompt:
+Write an endpoint for moderators to export a CSV of passengers for a flight. Since Member 3 hasn't finished the FlightBooking schema yet, mock the data for now and use Express @Res to download the file.
+How the output was used:
+Added the GET /api/flights/:id/passengers/export endpoint with @Header decorators for text/csv. Used mock data to verify the CSV generation works correctly in Swagger.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-19, FLT-22, FLT-23, FLT-25, FLT-26
+Prompt:
+I'm member 3, help me set up the repo, review Member 2's flights module, and implement the FlightBooking Mongoose schema (user, segments, passengers, status, holdExpiresAt,
+total price, unique reference, policiesAcceptedAt).
+How the output was used:
+Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it compiles, and committed it on feature/FLT-22-flight-booking-schema.
+================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: Team leader review (all members), PAY-01
+Prompt:
+I am Member 5 and team leader. Give me CMD commands to pull the latest
+develop and list the project state (branches, commits, routes, requirement
+IDs in code) so I can see which requirements are finished before I start
+my own part.
+How the output was used:
+Ran the commands, pasted the output back, and used the summary to see that
+auth, users, notifications, audit, seeds and flights are merged, hotels
+only has HTL-01, and no booking, admin or payment code exists yet.
+================================================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Using the shared code (User schema, enums, AuditService, NotificationsService,
+pagination helpers, Airline and Hotel schemas), write the Mongoose schemas
+for payments: Payment, Refund, PolicyAcceptance and ProcessedStripeEvent.
+Store no card data, only Stripe IDs, amount, currency and status.
+How the output was used:
+Created the enums file and four schema files inside backend/src/payments,
+checked that npm run build passes, and committed them to
+feature/PAY-01-payment-schemas.
+================================================================================
+
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Read Member 3 flight-booking schema and write the booking contract that
+Payments needs from the flight and hotel booking modules: a PayableBooking
+shape plus findPayable, confirmAfterPayment, expireHold and
+markPoliciesAccepted, and injection tokens for each booking module.
+How the output was used:
+Added payable-booking.interface.ts inside backend/src/payments, checked the
+build, and will share it with Members 3 and 4 so their services match what
+the payment webhook and refund code will call.
+================================================================================
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ACC-14, ACC-15, ACC-16, ACC-17
+Prompt:
+Read Member 1's admin module and the hotel booking schema, then add admin
+endpoints without clashing with them: accounts list with search and filters,
+suspend and reactivate accounts, deactivate and reactivate providers, and a
+read-only list of flight and hotel bookings.
+How the output was used:
+Added admin-management service, controller and two DTOs inside backend/src/admin,
+registered them in admin.module.ts, tested the endpoints in Swagger, and
+reviewed the audit and notification calls.
+================================================================================

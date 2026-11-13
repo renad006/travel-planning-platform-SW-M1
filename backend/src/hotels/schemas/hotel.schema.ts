@@ -34,15 +34,22 @@ export class Hotel {
     @Prop({ type: [String], default: [] })
     amenities: string[];
 
+    // HTL-09: standard times as 24-hour HH:mm, set by the hotel moderator
+    @Prop({ match: /^([01]\d|2[0-3]):[0-5]\d$/ })
+    checkInTime?: string;
+
+    @Prop({ match: /^([01]\d|2[0-3]):[0-5]\d$/ })
+    checkOutTime?: string;
+
     // ACC-15: inactive hotels are hidden from search and cannot be booked
     @Prop({ default: true })
     isActive: boolean;
 
     // HTL-12 / HTL-23: average review rating, named by Member 4.
     // Member 5 (HTL-23): recalculate and save both fields whenever a review
-    // is created, edited or deleted. averageRating stays empty until the first review.
+    // is created, edited or deleted. avgRating stays empty until the first review.
     @Prop({ type: Number, min: 1, max: 5, default: null })
-    averageRating: number | null;
+    avgRating: number | null;
 
     @Prop({ default: 0 })
     ratingCount: number;
