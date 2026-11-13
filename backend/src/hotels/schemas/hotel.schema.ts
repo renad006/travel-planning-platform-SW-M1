@@ -47,9 +47,9 @@ export class Hotel {
 
     // HTL-12 / HTL-23: average review rating, named by Member 4.
     // Member 5 (HTL-23): recalculate and save both fields whenever a review
-    // is created, edited or deleted. averageRating stays empty until the first review.
+    // is created, edited or deleted. avgRating stays empty until the first review.
     @Prop({ type: Number, min: 1, max: 5, default: null })
-    averageRating: number | null;
+    avgRating: number | null;
 
     @Prop({ default: 0 })
     ratingCount: number;

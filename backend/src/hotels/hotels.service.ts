@@ -352,10 +352,10 @@ export class HotelsService {
                     fits &&
                     (query.minPrice === undefined || cheapestPrice >= query.minPrice) &&
                     (query.maxPrice === undefined || cheapestPrice <= query.maxPrice) &&
-                    // unrated hotels (averageRating null) are excluded by a rating filter
+                    // unrated hotels (avgRating null) are excluded by a rating filter
                     (query.minRating === undefined ||
-                        (hotel.averageRating !== null &&
-                            hotel.averageRating >= query.minRating)),
+                        (hotel.avgRating !== null &&
+                            hotel.avgRating >= query.minRating)),
             );
 
         const direction = query.sortOrder === 'asc' ? 1 : -1;
@@ -365,7 +365,7 @@ export class HotelsService {
             // unrated hotels sort as 0, so they come last when highest rating is first
             matching.sort(
                 (a, b) =>
-                    ((a.hotel.averageRating ?? 0) - (b.hotel.averageRating ?? 0)) *
+                    ((a.hotel.avgRating ?? 0) - (b.hotel.avgRating ?? 0)) *
                     direction,
             );
         }
