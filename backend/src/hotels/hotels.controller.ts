@@ -11,6 +11,11 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomStatusQueryDto } from './dto/room-status-query.dto';
+import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
+import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
+import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Hotels')
 @ApiCookieAuth()
@@ -89,6 +94,37 @@ export class HotelsController {
     @ApiOperation({ summary: 'Delete a never-reserved room (HTL-06)' })
     deleteRoom(@Param('id') id: string, @Param('roomId') roomId: string) {
         return this.hotelsService.deleteRoom(id, roomId);
+    }
+
+    @Get('search')
+    @Public()
+    @ApiOperation({ summary: 'Search hotels with free rooms (HTL-11)' })
+    search(@Query() query: SearchHotelsQueryDto) {
+        return this.hotelsService.search(query);
+    }
+
+    @Get(':id/rooms/available')
+    @Public()
+    @ApiOperation({ summary: 'List free rooms for a stay (HTL-15)' })
+    availableRooms(
+        @Param('id') id: string,
+        @Query() query: RoomsAvailableQueryDto,
+    ) {
+        return this.hotelsService.availableRooms(id, query);
+    }
+
+    @Get(':id')
+    @Public()
+    @ApiOperation({ summary: 'Hotel details, with free rooms if dates are given (HTL-02)' })
+    details(@Param('id') id: string, @Query() query: HotelDetailsQueryDto) {
+        return this.hotelsService.details(id, query);
+    }
+
+    @Get(':id/reservations')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Reservations of my hotel (HTL-22)' })
+    reservations(@Param('id') id: string, @Query() query: PaginationQueryDto) {
+        return this.hotelsService.reservations(id, query);
     }
 
     @Get(':id/availability')
