@@ -1,11 +1,14 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCookieAuth,
   ApiCreatedResponse,
@@ -16,6 +19,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { ListAuditLogsDto } from '../audit/dto/list-audit-logs.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -65,5 +69,19 @@ export class AdminController {
     @CurrentUser() admin: UserDocument,
   ) {
     return this.adminService.resetUserPassword(id, admin);
+  }
+
+  @Get('audit-logs')
+  @ApiOperation({
+    summary: 'GEN-07: list audit logs',
+    description:
+      'Admin only. Paginated, newest first. Filter by actorId, action, targetType, targetId and a from/to date range.',
+  })
+  @ApiOkResponse({ description: 'Paginated audit logs (GEN-07)' })
+  @ApiBadRequestResponse({ description: 'Invalid filter or date range' })
+  @ApiUnauthorizedResponse({ description: 'Not logged in' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
+  listAuditLogs(@Query() query: ListAuditLogsDto) {
+    return this.adminService.listAuditLogs(query);
   }
 }

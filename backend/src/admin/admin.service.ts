@@ -16,6 +16,7 @@ import { Hotel, HotelDocument } from '../hotels/schemas/hotel.schema';
 import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { CreateModeratorDto } from './dto/create-moderator.dto';
+import { ListAuditLogsDto } from '../audit/dto/list-audit-logs.dto';
 
 @Injectable()
 export class AdminService {
@@ -107,6 +108,10 @@ export class AdminService {
 
     // Returned once so the admin can hand it over. Never stored in plain text or logged.
     return { userId, temporaryPassword };
+  }
+  // GEN-07: admin audit log query
+  listAuditLogs(query: ListAuditLogsDto) {
+    return this.auditService.findAll(query);
   }
 
   // 12 characters, always at least one letter and one digit (password rules)
