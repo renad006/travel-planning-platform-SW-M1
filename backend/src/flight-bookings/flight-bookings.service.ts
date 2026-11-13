@@ -2,11 +2,14 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { DateTime } from 'luxon';
 import { Model, Types } from 'mongoose';
+import { BookingStatus } from '../common/enums/booking-status.enum';
 import { FlightsService } from '../flights/flights.service';
 import { Airline, AirlineDocument } from '../flights/schemas/airline.schema';
 import { CabinClass } from '../flights/schemas/cabin-inventory.schema';
@@ -24,6 +27,10 @@ import {
   FlightLegDto,
 } from './dto/create-flight-booking.dto';
 import {
+  FLIGHT_BOOKING_EVENTS,
+  FlightBookingExpiredEvent,
+} from './flight-bookings.events';
+import {
   ageOnDate,
   baggageFeeCents,
   fareCentsFor,
@@ -36,11 +43,16 @@ import {
 } from './flight-bookings.rules';
 import {
   AirportMap,
+  BookingRecord,
+  BookingView,
+  toBookingView,
   toPassengerView,
   toPricingView,
   toSegmentView,
 } from './flight-bookings.view';
 import {
+  FlightBooking,
+  FlightBookingDocument,
   FlightSegment,
   Passenger,
   PassengerType,
@@ -105,7 +117,11 @@ interface PreparedBooking {
 
 @Injectable()
 export class FlightBookingsService {
+  private readonly logger = new Logger(FlightBookingsService.name);
+
   constructor(
+    @InjectModel(FlightBooking.name)
+    private readonly bookingModel: Model<FlightBookingDocument>,
     @InjectModel(Flight.name)
     private readonly flightModel: Model<FlightDocument>,
     @InjectModel(Airline.name)
@@ -113,6 +129,7 @@ export class FlightBookingsService {
     @InjectModel(Airport.name)
     private readonly airportModel: Model<AirportDocument>,
     private readonly flightsService: FlightsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   // ======================================================================
@@ -138,6 +155,90 @@ export class FlightBookingsService {
       holdMinutes: HOLD_MINUTES,
       note: 'Nothing is reserved yet. Call POST /flight-bookings/hold to hold the seats and proceed to payment.',
     };
+  }
+
+  // ======================================================================
+  // FLT-22: concurrency-safe seat hold
+  // ======================================================================
+
+  /**
+   * "Proceed to payment": reserve the seats atomically and create a Pending Payment booking
+   * held for 10 minutes.
+   *
+   * Seat safety comes from FlightsService.reserveSeats, a SINGLE conditional update
+   * (`free seats >= requested` checked and incremented in one atomic step), so two parallel
+   * requests can never take the same last seat. For a round trip both legs are reserved; if
+   * the second fails, the first is released again, so it is all-or-nothing.
+   */
+  async hold(userId: string, dto: CreateFlightBookingDto) {
+    const prepared = await this.prepare(dto);
+
+    const reserved: FlightSegment[] = [];
+    let created: FlightBookingDocument;
+    try {
+      for (const segment of prepared.segments) {
+        await this.flightsService.reserveSeats(
+          segment.flightId.toString(),
+          segment.cabinClass,
+          prepared.seatCount,
+        );
+        reserved.push(segment);
+      }
+      created = await this.bookingModel.create({
+        userId: new Types.ObjectId(userId),
+        airlineId: prepared.airlineId,
+        tripType: prepared.tripType,
+        segments: prepared.segments,
+        passengers: prepared.passengers,
+        seatCount: prepared.seatCount,
+        status: BookingStatus.PENDING_PAYMENT,
+        holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60_000),
+        currency: prepared.currency,
+        fareTotal: prepared.fareTotal,
+        baggageTotal: prepared.baggageTotal,
+        totalPrice: prepared.totalPrice,
+        policiesSnapshot: prepared.policiesSnapshot,
+        departureTime: prepared.departureTime,
+        endsAt: prepared.endsAt,
+      });
+    } catch (error) {
+      // all-or-nothing: give back whatever was already held
+      for (const segment of reserved) {
+        await this.releaseHeldSegment(
+          segment,
+          prepared.seatCount,
+          'rollback of a failed hold',
+        );
+      }
+      throw error;
+    }
+
+    const [view] = await this.toViews(
+      [created.toObject() as unknown as BookingRecord],
+      false,
+    );
+    return view;
+  }
+
+  // ======================================================================
+  // FLT-22 / GEN-11: scheduled lifecycle jobs (called by FlightBookingsTasks)
+  // ======================================================================
+
+  /** Pending Payment -> Expired for every hold older than 10 minutes; releases the seats. */
+  async expireDueHolds(batchSize = 200): Promise<number> {
+    const due = await this.bookingModel
+      .find({
+        status: BookingStatus.PENDING_PAYMENT,
+        holdExpiresAt: { $lte: new Date() },
+      })
+      .select('_id')
+      .limit(batchSize)
+      .lean();
+    let expired = 0;
+    for (const row of due) {
+      if (await this.expireIfPending(row._id)) expired += 1;
+    }
+    return expired;
   }
 
   // ======================================================================
@@ -457,6 +558,72 @@ export class FlightBookingsService {
       }
     }
     return passengers;
+  }
+
+  /**
+   * Pending Payment -> Expired. One atomic claim, so the cron, a lazy read, a flight cancellation
+   * and Payments can race safely: only the winner releases the seats (exactly once).
+   * Callers decide WHEN a hold is due; this only checks that the booking is still pending.
+   */
+  private async expireIfPending(id: Types.ObjectId): Promise<boolean> {
+    const now = new Date();
+    const claimed = await this.bookingModel.findOneAndUpdate(
+      { _id: id, status: BookingStatus.PENDING_PAYMENT },
+      { $set: { status: BookingStatus.EXPIRED, expiredAt: now } },
+      { returnDocument: 'after' },
+    );
+    if (!claimed) return false;
+
+    const record = claimed.toObject() as unknown as BookingRecord;
+    for (const segment of record.segments) {
+      await this.releaseHeldSegment(
+        segment,
+        record.seatCount,
+        `expiry of booking ${record._id.toString()}`,
+      );
+    }
+    // TODO(Member 5): once PaymentsService.cancelIntentForBooking('flight', id) exists, the open
+    // Stripe PaymentIntent must be cancelled here. The event below carries everything Payments
+    // needs, so Payments can simply listen to it (no circular module dependency); otherwise call
+    // it directly from this method.
+    const expired: FlightBookingExpiredEvent = {
+      bookingId: record._id.toString(),
+      userId: record.userId.toString(),
+      paymentId: record.paymentId?.toString(),
+    };
+    this.events.emit(FLIGHT_BOOKING_EVENTS.EXPIRED, expired);
+    return true;
+  }
+
+  private async releaseHeldSegment(
+    segment: FlightSegment,
+    seats: number,
+    context: string,
+  ) {
+    try {
+      await this.flightsService.releaseHeldSeats(
+        segment.flightId.toString(),
+        segment.cabinClass,
+        seats,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not release ${seats} held seat(s) of flight ${segment.flightNumber} (${context}): ` +
+          (error as Error).message,
+      );
+    }
+  }
+
+  // ---- small helpers -----------------------------------------------------
+
+  private async toViews(
+    records: BookingRecord[],
+    maskPassports: boolean,
+  ): Promise<BookingView[]> {
+    const airports = await this.airportMap(
+      records.flatMap((r) => this.airportCodes(r.segments)),
+    );
+    return records.map((r) => toBookingView(r, airports, { maskPassports }));
   }
 
   private airportCodes(segments: FlightSegment[]): string[] {
