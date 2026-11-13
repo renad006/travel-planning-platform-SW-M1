@@ -46,6 +46,9 @@ export type AuthUser = {
   _id: Types.ObjectId | string;
   role: Role;
   assignedProviderId?: Types.ObjectId | string | null;
+  /** Confirmed by Member 1: 'airline' or 'hotel'. Lets us reject a hotel moderator
+   *  whose assignedProviderId happens to collide with an airline's ObjectId. */
+  assignedProviderType?: 'airline' | 'hotel' | null;
 };
 
 const OBJECT_ID = /^[a-f\d]{24}$/i;
@@ -99,6 +102,7 @@ export class FlightsService {
     if (allowAdmin && user.role === Role.ADMIN) return;
     if (
       user.role !== Role.AIRLINE_MODERATOR ||
+      user.assignedProviderType !== 'airline' ||
       !user.assignedProviderId ||
       user.assignedProviderId.toString() !== airlineId.toString()
     ) {
@@ -116,7 +120,7 @@ export class FlightsService {
   private async loadOwnedFlight(flightId: string, user: AuthUser, mustBeScheduled = false) {
     const flight = await this.flightModel.findById(this.oid(flightId, 'flight id'));
     if (!flight) throw new NotFoundException('Flight not found');
-    this.assertOwnsAirline(user, flight.airlineId, true);
+    this.assertOwnsAirline(user, flight.airlineId);
     if (
       mustBeScheduled &&
       (flight.status !== FlightStatus.SCHEDULED || flight.departureTime.getTime() <= Date.now())
@@ -368,12 +372,29 @@ export class FlightsService {
   // FLT-03 / FLT-05 / FLT-06  Flights
   // ================================================================
 
+  /**
+   * FLT-03, per the team's role plan: Admin / assigned moderator.
+   * - Airline Moderator: airline is always their own assignment; any `dto.airlineId` is ignored.
+   * - Admin: must send `dto.airlineId` explicitly (there is no "own airline" to fall back to).
+   */
   async createFlight(dto: CreateFlightDto, user: AuthUser) {
-    if (user.role !== Role.AIRLINE_MODERATOR || !user.assignedProviderId) {
-      throw new ForbiddenException('Only an airline moderator with an assigned airline can create flights');
+    let airlineId: string;
+    if (user.role === Role.AIRLINE_MODERATOR) {
+      if (user.assignedProviderType !== 'airline' || !user.assignedProviderId) {
+        throw new ForbiddenException('You have no airline assigned to you');
+      }
+      airlineId = user.assignedProviderId.toString();
+    } else if (user.role === Role.ADMIN) {
+      if (!dto.airlineId) {
+        throw new BadRequestException('Admins must send airlineId to create a flight');
+      }
+      airlineId = dto.airlineId;
+    } else {
+      throw new ForbiddenException('Only an admin or an airline moderator can create flights');
     }
-    const airline = await this.airlineModel.findById(user.assignedProviderId);
-    if (!airline) throw new NotFoundException('Assigned airline not found');
+
+    const airline = await this.airlineModel.findById(this.oid(airlineId, 'airlineId'));
+    if (!airline) throw new NotFoundException('Airline not found');
     if (dto.originAirport === dto.destinationAirport) {
       throw new BadRequestException('Departure and arrival airports must be different');
     }
@@ -494,7 +515,7 @@ export class FlightsService {
     return cancelled;
   }
 
-  // ---- FLT-30: Scheduled -> Departed (needs ScheduleModule.forRoot() in AppModule) ----
+  // ---- FLT-30: Scheduled -> Departed (ScheduleModule.forRoot() is registered in FlightsModule) ----
   @Cron(CronExpression.EVERY_MINUTE)
   async markDepartedFlights() {
     try {
