@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { NotificationsService } from '../notifications/notifications.service';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
@@ -21,6 +22,7 @@ export class AdminService {
   constructor(
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
     @InjectModel(Airline.name)
     private readonly airlineModel: Model<AirlineDocument>,
     @InjectModel(Hotel.name)
@@ -68,6 +70,43 @@ export class AdminService {
 
     // The temporary password is returned once and never stored in plain text.
     return { user: user.toJSON(), temporaryPassword };
+  }
+
+    // ACC-07a: admin-initiated password reset. The user must change it at next login.
+  async resetUserPassword(userId: string, admin: UserDocument) {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('User not found');
+    }
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    await this.usersService.updateById(userId, {
+      password: await bcrypt.hash(temporaryPassword, 10),
+      mustChangePassword: true,
+    });
+
+    await this.auditService.log({
+      actor: { id: admin.id, role: admin.role },
+      action: 'PASSWORD_RESET_BY_ADMIN',
+      targetType: 'user',
+      targetId: userId,
+      metadata: {},
+    });
+
+    await this.notificationsService.notify({
+      userId,
+      type: 'PASSWORD_RESET',
+      title: 'Your password was reset',
+      message:
+        'An administrator reset your password. Log in with the temporary password you were given and change it immediately.',
+      related: { type: 'user', id: userId },
+    });
+
+    // Returned once so the admin can hand it over. Never stored in plain text or logged.
+    return { userId, temporaryPassword };
   }
 
   // 12 characters, always at least one letter and one digit (password rules)

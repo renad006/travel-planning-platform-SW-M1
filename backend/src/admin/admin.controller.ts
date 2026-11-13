@@ -1,10 +1,17 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Param,
+  Post,
+} from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiCookieAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -40,5 +47,23 @@ export class AdminController {
     @CurrentUser() admin: UserDocument,
   ) {
     return this.adminService.createModerator(dto, admin);
+  }
+
+  @Post('users/:id/reset-password')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'ACC-07a: admin resets a user password',
+    description:
+      'Admin only. Generates a temporary password (returned once), sets mustChangePassword, writes an audit log and notifies the user.',
+  })
+  @ApiOkResponse({ description: 'Password reset (ACC-07a)' })
+  @ApiUnauthorizedResponse({ description: 'Not logged in' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  resetUserPassword(
+    @Param('id') id: string,
+    @CurrentUser() admin: UserDocument,
+  ) {
+    return this.adminService.resetUserPassword(id, admin);
   }
 }
