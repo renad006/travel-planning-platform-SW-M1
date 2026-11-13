@@ -118,6 +118,49 @@ Rules:
 How the output was used:
 Saved as the standing instructions of my Claude Project so every Member 1 task follows the same rules. Used it to add the Country, City and Attraction schemas and idempotent seeds from the real mock CSVs next to the existing Airport seed.
 ================================================
+================================================
+Date: 2026-11-12
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-13
+Prompt:
+Write the admin-only endpoint POST /api/admin/moderators that creates an airline or hotel moderator linked to exactly one existing provider, with a generated temporary password and mustChangePassword set.
+How the output was used:
+Added the admin module, DTO and service; the temporary password is returned once and the action is audit-logged. Tested in Swagger: 201 for admin, 404 for an unknown provider, 409 for a duplicate email, 403 for non-admins.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-13 (force password change at first login)
+Prompt:
+Enforce server-side that an account with a temporary password can only change its password, log out or read /auth/me until it changes the password.
+How the output was used:
+Added a global MustChangePasswordGuard after JwtAuthGuard with 5 unit tests. Tested in Swagger: 403 on other routes, 200 after change-password.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-07a
+Prompt:
+Write POST /api/admin/users/:id/reset-password so an admin can reset a user's password, with an audit log entry and a notification to the user.
+How the output was used:
+Added the endpoint to the admin module; it generates a temporary password, sets mustChangePassword, audit-logs and notifies. Tested in Swagger: 200, 404 for an invalid id, old password rejected, and the guard blocks the user until they change it.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-07
+Prompt:
+Write GET /api/admin/audit-logs for admins with pagination and filters for actor, action, target and date range, reusing the shared pagination helper.
+How the output was used:
+Added findAll to AuditService, a query DTO and the route. Tested in Swagger: filters and pagination work, from after to returns 400, a moderator gets 403.
+================================================
 
 ================================================
 Date: 2026-11-08
