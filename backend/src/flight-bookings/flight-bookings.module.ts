@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FlightsModule } from '../flights/flights.module';
 import { FlightBookingsController } from './flight-bookings.controller';
 import { FlightBookingsService } from './flight-bookings.service';
+import { FlightBookingsTasks } from './flight-bookings.tasks';
 import {
   FlightBooking,
   FlightBookingSchema,
@@ -26,7 +27,7 @@ import {
     FlightsModule,
   ],
   controllers: [FlightBookingsController],
-  providers: [FlightBookingsService],
+  providers: [FlightBookingsService, FlightBookingsTasks],
   exports: [FlightBookingsService, MongooseModule],
 })
 export class FlightBookingsModule {}

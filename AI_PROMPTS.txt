@@ -366,6 +366,20 @@ Reviewed the pure business rules and their unit tests, the DTOs and the quote en
 (POST /flight-bookings). Checked every validation case in Swagger before pushing.
 ================================================
 
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-22
+Prompt:
+How should a concurrency-safe 10-minute seat hold work on top of Member 2's atomic seat
+methods, including round trips and automatic expiry of unpaid holds?
+How the output was used:
+Implemented POST /flight-bookings/hold reusing FlightsService.reserveSeats (single atomic
+conditional update), rollback of the first leg if the second fails, and a cron job that
+expires holds. Registered ScheduleModule in AppModule.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
