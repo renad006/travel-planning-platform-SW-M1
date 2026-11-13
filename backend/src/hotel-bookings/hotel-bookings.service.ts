@@ -265,6 +265,15 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
               totalPrice,
               status: BookingStatus.PENDING_PAYMENT,
               holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60_000),
+              // PAY-02: what the user will accept, frozen at booking time
+              policiesSnapshot: {
+                cancellationTiers: hotel.cancellationTiers.map((t) => ({
+                  daysBeforeDeparture: t.daysBefore,
+                  refundPercentage: t.refundPercent,
+                })),
+                checkInTime: hotel.checkInTime,
+                checkOutTime: hotel.checkOutTime,
+              },
             },
           ],
           { session },
