@@ -1,3 +1,4 @@
+import { MustChangePasswordGuard } from './common/guards/must-change-password.guard';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -41,6 +42,7 @@ import { AdminModule } from './admin/admin.module';
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: MustChangePasswordGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ProviderScopeGuard },
   ],
