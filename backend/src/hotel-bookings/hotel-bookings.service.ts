@@ -186,24 +186,46 @@ export class HotelBookingsService
   // HTL-17, PayableBookingService. Member 5 calls this from the Stripe webhook after
   // payment_intent.succeeded. Atomic: only a booking still in Pending Payment becomes
   // Confirmed (with confirmedAt, paymentId and the HTL- reference) and the user is
-  // notified. Returns false if the booking was no longer pending, then Payments
-  // refunds 100%. A hold that ended but was not swept yet still confirms: the nights
-  // stay locked until the sweep, and the payment really succeeded.
+  // notified. Returns false if the booking was no longer pending (or its hold already
+  // ended, which expires it now), then Payments refunds 100%. Same payment delivered
+  // twice (Stripe redelivery) returns true, a different payment returns false.
   async confirmAfterPayment(id: string, paymentId: string): Promise<boolean> {
+    if (!isValidObjectId(paymentId)) {
+      throw new BadRequestException(
+        'paymentId must be the id of the Payment document',
+      );
+    }
+    const existing = isValidObjectId(id)
+      ? await this.bookingModel.findById(id)
+      : null;
+    if (!existing) {
+      this.logger.warn(`Payment ${paymentId} succeeded for unknown hotel booking ${id}`);
+      return false;
+    }
+    if (existing.status === BookingStatus.CONFIRMED) {
+      return existing.paymentId?.toString() === paymentId;
+    }
+    if (existing.status !== BookingStatus.PENDING_PAYMENT) {
+      return false;
+    }
+    if (existing.holdExpiresAt && existing.holdExpiresAt.getTime() <= Date.now()) {
+      await this.expireHold(id); // the timer has not run yet: expire it now
+      return false;
+    }
+
     // shortcut: a random 10-hex reference, a clash is rejected by the unique index, not retried
     const reference = `HTL-${randomBytes(5).toString('hex').toUpperCase()}`;
-    const booking = isValidObjectId(id)
-      ? await this.bookingModel.findOneAndUpdate(
-          { _id: id, status: BookingStatus.PENDING_PAYMENT },
-          {
-            status: BookingStatus.CONFIRMED,
-            confirmedAt: new Date(),
-            paymentId,
-            reference,
-          },
-          { returnDocument: 'after' },
-        )
-      : null;
+    // the status in the filter keeps this atomic if the timer expires it at the same moment
+    const booking = await this.bookingModel.findOneAndUpdate(
+      { _id: id, status: BookingStatus.PENDING_PAYMENT },
+      {
+        status: BookingStatus.CONFIRMED,
+        confirmedAt: new Date(),
+        paymentId,
+        reference,
+      },
+      { returnDocument: 'after' },
+    );
     if (!booking) {
       return false;
     }
