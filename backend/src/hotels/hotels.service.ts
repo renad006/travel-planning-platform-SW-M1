@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { Hotel, HotelDocument } from './schemas/hotel.schema';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
@@ -103,6 +103,57 @@ export class HotelsService {
             throw new NotFoundException('Room not found in this hotel');
         }
         return room;
+    }
+
+    // HTL-05: change a bookable range, without orphaning reservations made inside it
+    async updateAvailability(
+        hotelId: string,
+        roomId: string,
+        availabilityId: string,
+        dto: CreateAvailabilityDto,
+    ) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        const range = isValidObjectId(availabilityId)
+            ? await this.availabilityModel.findOne({ _id: availabilityId, roomId: room._id })
+            : null;
+        if (!range) {
+            throw new NotFoundException('Availability range not found');
+        }
+        const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
+        if (endDate <= startDate) {
+            throw new BadRequestException('End date must be after start date');
+        }
+        const overlap = await this.availabilityModel.exists({
+            _id: { $ne: range._id },
+            roomId: room._id,
+            startDate: { $lt: endDate },
+            endDate: { $gt: startDate },
+        });
+        if (overlap) {
+            throw new ConflictException(
+                'This range overlaps another availability range',
+            );
+        }
+        // a Confirmed or Pending Payment reservation inside the old range must stay inside the new one
+        const orphaned = await this.bookingModel.exists({
+            'rooms.roomId': room._id,
+            status: { $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
+            checkIn: { $lt: range.endDate },
+            checkOut: { $gt: range.startDate },
+            $or: [{ checkIn: { $lt: startDate } }, { checkOut: { $gt: endDate } }],
+        });
+        if (orphaned) {
+            throw new ConflictException(
+                'A reservation would fall outside the new range',
+            );
+        }
+        range.startDate = startDate;
+        range.endDate = endDate;
+        return range.save();
     }
 
     async blockRoom(
