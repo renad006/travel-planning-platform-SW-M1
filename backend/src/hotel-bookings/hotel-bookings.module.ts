@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { PAYABLE_HOTEL_BOOKINGS } from '../payments/payable-booking.interface';
 import { Hotel, HotelSchema } from '../hotels/schemas/hotel.schema';
 import { Room, RoomSchema } from '../hotels/schemas/room.schema';
 import {
@@ -30,7 +31,11 @@ import {
         ]),
     ],
     controllers: [HotelBookingsController],
-    providers: [HotelBookingsService],
-    exports: [HotelBookingsService],
+    providers: [
+        HotelBookingsService,
+        // Member 5's Payments injects this token, never the service directly
+        { provide: PAYABLE_HOTEL_BOOKINGS, useExisting: HotelBookingsService },
+    ],
+    exports: [HotelBookingsService, PAYABLE_HOTEL_BOOKINGS],
 })
 export class HotelBookingsModule {}

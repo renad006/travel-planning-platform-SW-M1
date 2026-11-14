@@ -8,9 +8,14 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, isValidObjectId, Model } from 'mongoose';
+import { Connection, isValidObjectId, Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
 import { BookingStatus } from '../common/enums/booking-status.enum';
+import { BookingType } from '../payments/enums/payment.enums';
+import type {
+  PayableBooking,
+  PayableBookingService,
+} from '../payments/payable-booking.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { nightsOf, parseStay } from '../common/utils/stay.util';
 import { Hotel, HotelDocument } from '../hotels/schemas/hotel.schema';
@@ -37,7 +42,9 @@ const HOLD_MINUTES = 10;
 const EXPIRY_CHECK_MS = 60_000;
 
 @Injectable()
-export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
+export class HotelBookingsService
+  implements OnModuleInit, OnModuleDestroy, PayableBookingService
+{
   private readonly logger = new Logger(HotelBookingsService.name);
   private timer?: NodeJS.Timeout;
 
@@ -61,7 +68,46 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
       this.expireHolds().catch((e: unknown) =>
         this.logger.error('Could not expire holds', e),
       );
+      this.completeStays().catch((e: unknown) =>
+        this.logger.error('Could not complete stays', e),
+      );
     }, EXPIRY_CHECK_MS);
+  }
+
+  // A Confirmed reservation whose check-out day has passed becomes Completed
+  // (Member 5's reviews, HTL-23/24, only accept Completed stays).
+  async completeStays() {
+    await this.bookingModel.updateMany(
+      { status: BookingStatus.CONFIRMED, checkOut: { $lt: new Date() } },
+      { status: BookingStatus.COMPLETED },
+    );
+  }
+
+  // TEST ONLY: same path the payment webhook uses, with a made-up payment id
+  async testConfirm(id: string) {
+    const confirmed = await this.confirmAfterPayment(
+      id,
+      new Types.ObjectId().toString(),
+    );
+    if (!confirmed) {
+      throw new ConflictException('This reservation is not awaiting payment');
+    }
+    return this.bookingModel.findById(id);
+  }
+
+  // TEST ONLY: skip the wait for check-out so reviews can be tested right away
+  async testComplete(id: string) {
+    const booking = isValidObjectId(id)
+      ? await this.bookingModel.findOneAndUpdate(
+          { _id: id, status: BookingStatus.CONFIRMED },
+          { status: BookingStatus.COMPLETED },
+          { returnDocument: 'after' },
+        )
+      : null;
+    if (!booking) {
+      throw new ConflictException('This reservation is not confirmed');
+    }
+    return booking;
   }
 
   onModuleDestroy() {
@@ -77,37 +123,111 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
       })
       .select('_id')
       .exec();
-    if (!expired.length) return;
-    const ids = expired.map((b) => b._id);
-    await this.bookingModel.updateMany(
-      { _id: { $in: ids } },
-      { status: BookingStatus.EXPIRED },
-    );
-    await this.lockModel.deleteMany({ bookingId: { $in: ids } });
+    // shortcut: one by one, fine for the few holds that end within a minute
+    for (const booking of expired) {
+      await this.expireHold(booking.id as string);
+    }
   }
 
-  // HTL-17, written by Member 4. Member 5 (payments): call this from your payment
-  // code once Stripe has verified a hotel payment (HotelBookingsModule exports this
-  // service). It sets the reservation to Confirmed, generates the booking reference
-  // and notifies the user. It throws a 409 if the reservation is not Pending Payment
-  // or its 10-minute hold has expired. If a payment fails or expires, do nothing:
-  // the expiry timer below releases the rooms.
-  async confirm(bookingId: string) {
+  // PayableBookingService: Pending Payment -> Expired, and free the rooms.
+  // TODO (Member 5): after expiring, call PaymentsService.cancelIntentForBooking('hotel', id)
+  // once that method exists, so the open Stripe PaymentIntent is cancelled.
+  async expireHold(id: string): Promise<void> {
+    const expired = await this.bookingModel.findOneAndUpdate(
+      { _id: id, status: BookingStatus.PENDING_PAYMENT },
+      { status: BookingStatus.EXPIRED },
+    );
+    if (expired) {
+      await this.lockModel.deleteMany({ bookingId: expired._id });
+    }
+  }
+
+  // PayableBookingService: what Payments needs to know about a hotel booking
+  async findPayable(id: string): Promise<PayableBooking> {
+    const booking = isValidObjectId(id)
+      ? await this.bookingModel.findById(id).exec()
+      : null;
+    if (!booking) {
+      throw new NotFoundException('Reservation not found');
+    }
+    const snapshot = booking.policiesSnapshot;
+    return {
+      id: booking.id as string,
+      type: BookingType.HOTEL,
+      ownerId: booking.userId.toString(),
+      providerId: booking.hotelId.toString(),
+      amount: booking.totalPrice,
+      currency: booking.currency,
+      status: booking.status,
+      holdExpiresAt: booking.holdExpiresAt ?? null,
+      policiesAcceptedAt: booking.policiesAcceptedAt ?? null,
+      cancellationAnchor: booking.checkIn,
+      cancellationTiers: snapshot?.cancellationTiers ?? [],
+      policySnapshot: {
+        cancellationTiers: snapshot?.cancellationTiers ?? [],
+        checkInTime: snapshot?.checkInTime ?? null,
+        checkOutTime: snapshot?.checkOutTime ?? null,
+      },
+    };
+  }
+
+  // PayableBookingService: PAY-02, store when the user accepted the policies
+  async markPoliciesAccepted(id: string, acceptedAt: Date): Promise<void> {
+    const booking = isValidObjectId(id)
+      ? await this.bookingModel.findByIdAndUpdate(id, {
+          policiesAcceptedAt: acceptedAt,
+        })
+      : null;
+    if (!booking) {
+      throw new NotFoundException('Reservation not found');
+    }
+  }
+
+  // HTL-17, PayableBookingService. Member 5 calls this from the Stripe webhook after
+  // payment_intent.succeeded. Atomic: only a booking still in Pending Payment becomes
+  // Confirmed (with confirmedAt, paymentId and the HTL- reference) and the user is
+  // notified. Returns false if the booking was no longer pending (or its hold already
+  // ended, which expires it now), then Payments refunds 100%. Same payment delivered
+  // twice (Stripe redelivery) returns true, a different payment returns false.
+  async confirmAfterPayment(id: string, paymentId: string): Promise<boolean> {
+    if (!isValidObjectId(paymentId)) {
+      throw new BadRequestException(
+        'paymentId must be the id of the Payment document',
+      );
+    }
+    const existing = isValidObjectId(id)
+      ? await this.bookingModel.findById(id)
+      : null;
+    if (!existing) {
+      this.logger.warn(`Payment ${paymentId} succeeded for unknown hotel booking ${id}`);
+      return false;
+    }
+    if (existing.status === BookingStatus.CONFIRMED) {
+      return existing.paymentId?.toString() === paymentId;
+    }
+    if (existing.status !== BookingStatus.PENDING_PAYMENT) {
+      return false;
+    }
+    if (existing.holdExpiresAt && existing.holdExpiresAt.getTime() <= Date.now()) {
+      await this.expireHold(id); // the timer has not run yet: expire it now
+      return false;
+    }
+
     // shortcut: a random 10-hex reference, a clash is rejected by the unique index, not retried
     const reference = `HTL-${randomBytes(5).toString('hex').toUpperCase()}`;
+    // the status in the filter keeps this atomic if the timer expires it at the same moment
     const booking = await this.bookingModel.findOneAndUpdate(
+      { _id: id, status: BookingStatus.PENDING_PAYMENT },
       {
-        _id: bookingId,
-        status: BookingStatus.PENDING_PAYMENT,
-        holdExpiresAt: { $gt: new Date() },
+        status: BookingStatus.CONFIRMED,
+        confirmedAt: new Date(),
+        paymentId,
+        reference,
       },
-      { status: BookingStatus.CONFIRMED, reference },
       { returnDocument: 'after' },
     );
     if (!booking) {
-      throw new ConflictException(
-        'This reservation is not awaiting payment, or its hold has expired',
-      );
+      return false;
     }
     const hotel = await this.hotelModel.findById(booking.hotelId);
     const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -118,7 +238,7 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
       message: `Reservation ${reference} at ${hotel?.name ?? 'your hotel'}, ${day(booking.checkIn)} to ${day(booking.checkOut)}, total ${booking.totalPrice}.`,
       related: { type: 'hotel_booking', id: booking.id as string },
     });
-    return booking;
+    return true;
   }
 
   // HTL-20: the user's reservations grouped as Upcoming, Past and Cancelled.
@@ -265,6 +385,15 @@ export class HotelBookingsService implements OnModuleInit, OnModuleDestroy {
               totalPrice,
               status: BookingStatus.PENDING_PAYMENT,
               holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60_000),
+              // PAY-02: what the user will accept, frozen at booking time
+              policiesSnapshot: {
+                cancellationTiers: hotel.cancellationTiers.map((t) => ({
+                  daysBeforeDeparture: t.daysBefore,
+                  refundPercentage: t.refundPercent,
+                })),
+                checkInTime: hotel.checkInTime,
+                checkOutTime: hotel.checkOutTime,
+              },
             },
           ],
           { session },

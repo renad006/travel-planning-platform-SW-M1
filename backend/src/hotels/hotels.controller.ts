@@ -1,4 +1,4 @@
-import { Body, Controller, NotFoundException, Param, Patch, Post, Delete, Get, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, NotFoundException, Param, Patch, Post, Put, Delete, Get, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -16,6 +16,7 @@ import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
 import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { UpdatePoliciesDto } from './dto/update-policies.dto';
 
 @ApiTags('Hotels')
 @ApiCookieAuth()
@@ -132,5 +133,12 @@ export class HotelsController {
     @ApiOperation({ summary: 'View room status for a date range (HTL-08)' })
     roomStatuses(@Param('id') id: string, @Query() query: RoomStatusQueryDto) {
         return this.hotelsService.roomStatuses(id, query);
+    }
+
+    @Put(':id/policies')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Set my hotel cancellation tiers (HTL-10)' })
+    setPolicies(@Param('id') id: string, @Body() dto: UpdatePoliciesDto) {
+        return this.hotelsService.setPolicies(id, dto);
     }
 }
