@@ -396,6 +396,19 @@ payment), exported the DI token from the module, added the Completed lifecycle j
 hasUpcomingConfirmedBookings (ACC-12). Tested with a local-only helper that is not committed.
 ================================================
 
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-25, ACC-11
+Prompt:
+Implement "my flight bookings" grouped Upcoming / Past / Cancelled with pagination and strict
+ownership checks.
+How the output was used:
+Added GET /flight-bookings and GET /flight-bookings/:id. Other users get 404. Passport numbers
+are masked in lists. Expired holds are detected on read.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
