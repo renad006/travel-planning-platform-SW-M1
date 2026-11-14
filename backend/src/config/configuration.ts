@@ -15,4 +15,10 @@ export default () => ({
       10,
     ),
   },
+  // PAY: Stripe + payments config (values come from env vars, never hard-coded)
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  },
+  defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'USD',
 });
