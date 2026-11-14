@@ -1,7 +1,16 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiCookieAuth,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -10,6 +19,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import type { UserDocument } from '../users/schemas/user.schema';
 import { CreateFlightBookingDto } from './dto/create-flight-booking.dto';
+import { ListFlightBookingsDto } from './dto/list-flight-bookings.dto';
 import { FlightBookingsService } from './flight-bookings.service';
 
 /**
@@ -51,5 +61,25 @@ export class FlightBookingsController {
   })
   hold(@CurrentUser() user: UserDocument, @Body() dto: CreateFlightBookingDto) {
     return this.service.hold(String(user._id), dto);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'My flight bookings, grouped Upcoming / Past / Cancelled (FLT-25)',
+    description:
+      'Use ?group=upcoming|past|cancelled. Paginated (page size 10). Passport numbers are masked in lists.',
+  })
+  list(
+    @CurrentUser() user: UserDocument,
+    @Query() query: ListFlightBookingsDto,
+  ) {
+    return this.service.list(String(user._id), query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Full details of one of my bookings (FLT-25)' })
+  @ApiNotFoundResponse({ description: 'Not found, or not your booking' })
+  get(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.service.get(String(user._id), id);
   }
 }

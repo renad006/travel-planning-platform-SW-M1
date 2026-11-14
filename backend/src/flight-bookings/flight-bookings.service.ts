@@ -12,6 +12,7 @@ import { randomInt } from 'crypto';
 import { DateTime } from 'luxon';
 import { Model, Types } from 'mongoose';
 import { BookingStatus } from '../common/enums/booking-status.enum';
+import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { FlightsService } from '../flights/flights.service';
 import { Airline, AirlineDocument } from '../flights/schemas/airline.schema';
 import { CabinClass } from '../flights/schemas/cabin-inventory.schema';
@@ -37,6 +38,10 @@ import {
   CreateFlightBookingDto,
   FlightLegDto,
 } from './dto/create-flight-booking.dto';
+import {
+  BookingGroup,
+  ListFlightBookingsDto,
+} from './dto/list-flight-bookings.dto';
 import {
   FLIGHT_BOOKING_EVENTS,
   FlightBookingExpiredEvent,
@@ -234,6 +239,45 @@ export class FlightBookingsService implements PayableBookingService {
       [created.toObject() as unknown as BookingRecord],
       false,
     );
+    return view;
+  }
+
+  // ======================================================================
+  // FLT-25: my bookings
+  // ======================================================================
+
+  async list(
+    userId: string,
+    query: ListFlightBookingsDto,
+  ): Promise<PaginatedResponse<BookingView>> {
+    const now = new Date();
+    const filter = {
+      userId: new Types.ObjectId(userId),
+      ...this.groupFilter(query.group, now),
+    };
+    const sort: Record<string, 1 | -1> =
+      query.group === BookingGroup.UPCOMING
+        ? { departureTime: 1, _id: 1 }
+        : query.group
+          ? { departureTime: -1, _id: -1 }
+          : { createdAt: -1, _id: -1 };
+
+    const [rows, total] = await Promise.all([
+      this.bookingModel
+        .find(filter)
+        .sort(sort)
+        .skip((query.page - 1) * query.limit)
+        .limit(query.limit)
+        .lean(),
+      this.bookingModel.countDocuments(filter),
+    ]);
+    const items = await this.toViews(rows as unknown as BookingRecord[], true);
+    return { items, total, page: query.page, limit: query.limit };
+  }
+
+  async get(userId: string, id: string): Promise<BookingView> {
+    const booking = await this.findOwned(userId, id);
+    const [view] = await this.toViews([booking], false);
     return view;
   }
 
@@ -759,6 +803,68 @@ export class FlightBookingsService implements PayableBookingService {
       }
     }
     return passengers;
+  }
+
+  /** FLT-25 groups. Bookings whose hold already ran out count as cancelled/expired. */
+  private groupFilter(
+    group: BookingGroup | undefined,
+    now: Date,
+  ): Record<string, unknown> {
+    switch (group) {
+      case BookingGroup.UPCOMING:
+        return {
+          $or: [
+            { status: BookingStatus.CONFIRMED, endsAt: { $gte: now } },
+            {
+              status: BookingStatus.PENDING_PAYMENT,
+              holdExpiresAt: { $gt: now },
+            },
+          ],
+        };
+      case BookingGroup.PAST:
+        return {
+          $or: [
+            { status: BookingStatus.COMPLETED },
+            { status: BookingStatus.CONFIRMED, endsAt: { $lt: now } },
+          ],
+        };
+      case BookingGroup.CANCELLED:
+        return {
+          $or: [
+            {
+              status: { $in: [BookingStatus.CANCELLED, BookingStatus.EXPIRED] },
+            },
+            {
+              status: BookingStatus.PENDING_PAYMENT,
+              holdExpiresAt: { $lte: now },
+            },
+          ],
+        };
+      default:
+        return {};
+    }
+  }
+
+  /** ACC-11: only the owner can see a booking; anyone else gets 404 (does not leak existence). */
+  private async findOwned(userId: string, id: string): Promise<BookingRecord> {
+    const _id = this.toObjectId(id);
+    let booking = (await this.bookingModel
+      .findOne({ _id, userId: new Types.ObjectId(userId) })
+      .lean()) as unknown as BookingRecord | null;
+    if (!booking) throw new NotFoundException(NOT_FOUND);
+
+    // lazy expiry, so the user never sees a stale "pending" booking before the cron ran
+    if (
+      booking.status === BookingStatus.PENDING_PAYMENT &&
+      booking.holdExpiresAt &&
+      booking.holdExpiresAt.getTime() <= Date.now()
+    ) {
+      await this.expireIfPending(_id);
+      booking = (await this.bookingModel
+        .findById(_id)
+        .lean()) as unknown as BookingRecord;
+    }
+    return booking;
   }
 
   /**
