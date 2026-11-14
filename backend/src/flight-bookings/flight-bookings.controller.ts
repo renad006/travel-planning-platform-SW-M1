@@ -6,14 +6,18 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiCookieAuth,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -21,6 +25,7 @@ import type { UserDocument } from '../users/schemas/user.schema';
 import { CreateFlightBookingDto } from './dto/create-flight-booking.dto';
 import { ListFlightBookingsDto } from './dto/list-flight-bookings.dto';
 import { FlightBookingsService } from './flight-bookings.service';
+import { renderETicket } from './flight-bookings.ticket';
 
 /**
  * Flight bookings of the logged-in user (FLT-19 to FLT-26).
@@ -81,5 +86,31 @@ export class FlightBookingsController {
   @ApiNotFoundResponse({ description: 'Not found, or not your booking' })
   get(@CurrentUser() user: UserDocument, @Param('id') id: string) {
     return this.service.get(String(user._id), id);
+  }
+
+  @Get(':id/e-ticket')
+  @ApiOperation({ summary: 'Download the e-ticket as PDF (FLT-23)' })
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({ description: 'PDF file' })
+  @ApiConflictResponse({
+    description: 'Only Confirmed bookings have an e-ticket',
+  })
+  async eTicket(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { view, airlineByFlight } = await this.service.getETicketData(
+      String(user._id),
+      id,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="e-ticket-${view.reference}.pdf"`,
+    );
+    const pdf = renderETicket(view, airlineByFlight);
+    pdf.pipe(res);
+    pdf.end();
   }
 }

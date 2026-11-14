@@ -282,6 +282,43 @@ export class FlightBookingsService implements PayableBookingService {
   }
 
   // ======================================================================
+  // FLT-23: e-ticket data (the controller renders the PDF)
+  // ======================================================================
+
+  async getETicketData(userId: string, id: string) {
+    const booking = await this.findOwned(userId, id);
+    if (
+      booking.status !== BookingStatus.CONFIRMED &&
+      booking.status !== BookingStatus.COMPLETED
+    ) {
+      throw new ConflictException(
+        'An e-ticket is only available for confirmed bookings',
+      );
+    }
+    const [view] = await this.toViews([booking], false);
+
+    // airline name per flight (the return leg can be another airline)
+    const flightIds = booking.segments.map((s) => s.flightId);
+    const flights = await this.flightModel
+      .find({ _id: { $in: flightIds } })
+      .select('airlineId')
+      .lean();
+    const airlines = await this.airlineModel
+      .find({ _id: { $in: flights.map((f) => f.airlineId) } })
+      .select('name')
+      .lean();
+    const nameByAirline = new Map(
+      airlines.map((a) => [a._id.toString(), a.name]),
+    );
+    const airlineByFlight: Record<string, string> = {};
+    for (const f of flights) {
+      airlineByFlight[f._id.toString()] =
+        nameByAirline.get(f.airlineId.toString()) ?? 'Airline';
+    }
+    return { view, airlineByFlight };
+  }
+
+  // ======================================================================
   // Booking contract for Payments (Member 5): payments/payable-booking.interface.ts
   // Payments never reads or writes this collection directly; it only calls these methods.
   // ======================================================================
