@@ -380,6 +380,22 @@ conditional update), rollback of the first leg if the second fails, and a cron j
 expires holds. Registered ScheduleModule in AppModule.
 ================================================
 
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, FLT-23, GEN-11
+Prompt:
+Implement Member 5's PayableBookingService contract for flight bookings (findPayable,
+confirmAfterPayment, expireHold, markPoliciesAccepted and the PAYABLE_FLIGHT_BOOKINGS token).
+confirmAfterPayment must be atomic and return false when the booking is no longer pending.
+How the output was used:
+Mapped FlightBooking fields to PayableBooking, implemented the atomic confirmation (reference
+and e-ticket generation, seats held -> booked, idempotent for a webhook redelivery of the same
+payment), exported the DI token from the module, added the Completed lifecycle job and
+hasUpcomingConfirmedBookings (ACC-12). Tested with a local-only helper that is not committed.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
