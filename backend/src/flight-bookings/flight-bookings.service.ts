@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
+import { randomInt } from 'crypto';
 import { DateTime } from 'luxon';
 import { Model, Types } from 'mongoose';
 import { BookingStatus } from '../common/enums/booking-status.enum';
@@ -19,9 +21,18 @@ import {
   FlightStatus,
 } from '../flights/schemas/flight.schema';
 import {
+  NotificationsService,
+  NotifyInput,
+} from '../notifications/notifications.service';
+import {
   Airport,
   AirportDocument,
 } from '../reference-data/schemas/airport.schema';
+import { BookingType } from '../payments/enums/payment.enums';
+import type {
+  PayableBooking,
+  PayableBookingService,
+} from '../payments/payable-booking.interface';
 import {
   CreateFlightBookingDto,
   FlightLegDto,
@@ -60,6 +71,11 @@ import {
   SegmentDirection,
   TripType,
 } from './schemas/flight-booking.schema';
+
+const OBJECT_ID = /^[a-f\d]{24}$/i;
+const NOT_FOUND = 'Flight booking not found';
+const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I: easy to read aloud
+const MAX_ID_RETRIES = 5;
 
 // ---- minimal shapes of the lean documents we read from Member 2's collections ----
 interface FlightLean {
@@ -116,7 +132,7 @@ interface PreparedBooking {
 }
 
 @Injectable()
-export class FlightBookingsService {
+export class FlightBookingsService implements PayableBookingService {
   private readonly logger = new Logger(FlightBookingsService.name);
 
   constructor(
@@ -129,6 +145,7 @@ export class FlightBookingsService {
     @InjectModel(Airport.name)
     private readonly airportModel: Model<AirportDocument>,
     private readonly flightsService: FlightsService,
+    private readonly notifications: NotificationsService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -221,6 +238,181 @@ export class FlightBookingsService {
   }
 
   // ======================================================================
+  // Booking contract for Payments (Member 5): payments/payable-booking.interface.ts
+  // Payments never reads or writes this collection directly; it only calls these methods.
+  // ======================================================================
+
+  /** What Payments needs to know about a booking. No ownership check here: Payments does it. */
+  async findPayable(id: string): Promise<PayableBooking> {
+    const booking = (await this.bookingModel
+      .findById(this.toObjectId(id))
+      .lean()) as unknown as BookingRecord | null;
+    if (!booking) throw new NotFoundException(NOT_FOUND);
+
+    const snapshot = booking.policiesSnapshot;
+    const cancellationTiers = (snapshot?.cancellationTiers ?? []).map((t) => ({
+      daysBeforeDeparture: t.daysBeforeDeparture,
+      refundPercentage: t.refundPercentage,
+    }));
+    return {
+      id: booking._id.toString(),
+      type: BookingType.FLIGHT,
+      ownerId: booking.userId.toString(),
+      providerId: booking.airlineId.toString(),
+      amount: booking.totalPrice,
+      currency: booking.currency,
+      status: booking.status,
+      // only meaningful while the booking waits for payment
+      holdExpiresAt:
+        booking.status === BookingStatus.PENDING_PAYMENT
+          ? (booking.holdExpiresAt ?? null)
+          : null,
+      policiesAcceptedAt: booking.policiesAcceptedAt ?? null,
+      // FLT-12a: a round trip is refunded by the OUTBOUND departure
+      cancellationAnchor: booking.departureTime,
+      cancellationTiers,
+      policySnapshot: {
+        cancellationTiers,
+        extraBagPrice: snapshot?.extraBagPrice ?? 0,
+        maxExtraBags: snapshot?.maxExtraBags ?? 0,
+      },
+    };
+  }
+
+  /**
+   * FLT-23 / PAY-01: called by the Stripe webhook after payment_intent.succeeded.
+   * ATOMIC: only a booking still in PENDING_PAYMENT with a live hold becomes CONFIRMED.
+   * Held seats become booked seats, a unique reference and e-ticket number are generated and the
+   * user is notified.
+   *
+   * Returns true when this payment confirmed the booking (a webhook redelivery of the SAME payment
+   * is also true). Returns false when the booking was no longer pending (expired, cancelled, a
+   * different payment already confirmed it, or it does not exist): Payments then refunds 100%.
+   * `paymentId` is the id of Payments' Payment document.
+   */
+  async confirmAfterPayment(id: string, paymentId: string): Promise<boolean> {
+    if (!OBJECT_ID.test(paymentId)) {
+      throw new BadRequestException(
+        'paymentId must be the id of the Payment document',
+      );
+    }
+    const bookingId = this.toObjectId(id);
+    const existing = (await this.bookingModel
+      .findById(bookingId)
+      .lean()) as unknown as BookingRecord | null;
+    if (!existing) {
+      this.logger.warn(
+        `Payment ${paymentId} succeeded for unknown flight booking ${id}`,
+      );
+      return false;
+    }
+    if (existing.status === BookingStatus.CONFIRMED) {
+      return existing.paymentId?.toString() === paymentId; // redelivery vs a second payment
+    }
+    if (existing.status !== BookingStatus.PENDING_PAYMENT) return false;
+    if (
+      existing.holdExpiresAt &&
+      existing.holdExpiresAt.getTime() <= Date.now()
+    ) {
+      await this.expireIfPending(bookingId); // the cron has not run yet: expire it now
+      return false;
+    }
+
+    // The unique indexes make a generated reference collide only with astronomically small
+    // probability; if it ever does we simply retry.
+    let claimed: FlightBookingDocument | null = null;
+    for (let attempt = 0; attempt < MAX_ID_RETRIES && !claimed; attempt += 1) {
+      try {
+        claimed = await this.bookingModel.findOneAndUpdate(
+          {
+            _id: bookingId,
+            status: BookingStatus.PENDING_PAYMENT,
+            holdExpiresAt: { $gt: new Date() },
+          },
+          {
+            $set: {
+              status: BookingStatus.CONFIRMED,
+              confirmedAt: new Date(),
+              paymentId: new Types.ObjectId(paymentId),
+              reference: this.generateReference(),
+              eTicketNumber: this.generateETicketNumber(),
+            },
+          },
+          { returnDocument: 'after' },
+        );
+        if (!claimed) break; // lost a race (expired / confirmed by a parallel call)
+      } catch (error) {
+        if (!this.isDuplicateKey(error)) throw error;
+      }
+    }
+    if (!claimed) {
+      const current = (await this.bookingModel
+        .findById(bookingId)
+        .lean()) as unknown as BookingRecord | null;
+      return (
+        current?.status === BookingStatus.CONFIRMED &&
+        current.paymentId?.toString() === paymentId
+      );
+    }
+
+    const record = claimed.toObject() as unknown as BookingRecord;
+    for (const segment of record.segments) {
+      try {
+        await this.flightsService.confirmSeats(
+          segment.flightId.toString(),
+          segment.cabinClass,
+          record.seatCount,
+        );
+      } catch (error) {
+        // Should be impossible (Member 2 never lets seats drop below held+booked).
+        this.logger.error(
+          `CRITICAL: booking ${record._id.toString()} is Confirmed but seats of flight ` +
+            `${segment.flightNumber} could not be moved from held to booked: ${(error as Error).message}`,
+        );
+        throw new InternalServerErrorException(
+          'The booking was confirmed but seat inventory needs attention',
+        );
+      }
+    }
+
+    await this.safeNotify({
+      userId: record.userId.toString(),
+      type: 'FLIGHT_BOOKING_CONFIRMED',
+      title: 'Flight booking confirmed',
+      message:
+        `Your booking ${record.reference} is confirmed: ${this.routeLabel(record)}, ` +
+        `${record.passengers.length} passenger(s), total ${record.totalPrice.toFixed(2)} ${record.currency}. ` +
+        `Your e-ticket number is ${record.eTicketNumber}.`,
+      related: { type: 'flight_booking', id: record._id.toString() },
+    });
+    return true;
+  }
+
+  /** FLT-22: Pending Payment -> Expired and the seats are released (no-op if no longer pending). */
+  async expireHold(id: string): Promise<void> {
+    await this.expireIfPending(this.toObjectId(id));
+  }
+
+  /** PAY-02: Payments saved the acceptance record, this stores the timestamp on the booking. */
+  async markPoliciesAccepted(id: string, acceptedAt: Date): Promise<void> {
+    const result = await this.bookingModel.updateOne(
+      { _id: this.toObjectId(id) },
+      { $set: { policiesAcceptedAt: acceptedAt } },
+    );
+    if (result.matchedCount === 0) throw new NotFoundException(NOT_FOUND);
+  }
+
+  /** ACC-12 (Member 1): a user with upcoming Confirmed bookings cannot deactivate the account. */
+  async hasUpcomingConfirmedBookings(userId: string): Promise<boolean> {
+    const count = await this.bookingModel.countDocuments({
+      userId: new Types.ObjectId(userId),
+      status: BookingStatus.CONFIRMED,
+      endsAt: { $gte: new Date() },
+    });
+    return count > 0;
+  }
+
+  // ======================================================================
   // FLT-22 / GEN-11: scheduled lifecycle jobs (called by FlightBookingsTasks)
   // ======================================================================
 
@@ -239,6 +431,15 @@ export class FlightBookingsService {
       if (await this.expireIfPending(row._id)) expired += 1;
     }
     return expired;
+  }
+
+  /** Confirmed -> Completed once the whole trip is over (GEN-11). */
+  async completeFinishedBookings(): Promise<number> {
+    const result = await this.bookingModel.updateMany(
+      { status: BookingStatus.CONFIRMED, endsAt: { $lt: new Date() } },
+      { $set: { status: BookingStatus.COMPLETED } },
+    );
+    return result.modifiedCount;
   }
 
   // ======================================================================
@@ -641,5 +842,50 @@ export class FlightBookingsService {
         { iataCode: a.iataCode, name: a.name, timeZone: a.timeZone },
       ]),
     );
+  }
+
+  private routeLabel(booking: Pick<BookingRecord, 'segments'>): string {
+    const first = booking.segments[0];
+    const route = `${first.originAirport} to ${first.destinationAirport}`;
+    return booking.segments.length > 1 ? `${route} and back` : route;
+  }
+
+  private toObjectId(id: string): Types.ObjectId {
+    if (!OBJECT_ID.test(id)) throw new NotFoundException(NOT_FOUND);
+    return new Types.ObjectId(id);
+  }
+
+  /** FB-XXXXXXXX: 8 unambiguous characters from a cryptographically secure generator. */
+  private generateReference(): string {
+    let code = '';
+    for (let i = 0; i < 8; i += 1)
+      code += REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)];
+    return `FB-${code}`;
+  }
+
+  /** ETK + 13 digits, the shape of a real e-ticket number. */
+  private generateETicketNumber(): string {
+    let digits = '';
+    for (let i = 0; i < 13; i += 1) digits += randomInt(10).toString();
+    return `ETK${digits}`;
+  }
+
+  private isDuplicateKey(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: number }).code === 11000
+    );
+  }
+
+  /** A failed notification must never break a booking, a cancellation or a webhook. */
+  private async safeNotify(input: NotifyInput): Promise<void> {
+    try {
+      await this.notifications.notify(input);
+    } catch (error) {
+      this.logger.error(
+        `Notification "${input.type}" failed: ${(error as Error).message}`,
+      );
+    }
   }
 }

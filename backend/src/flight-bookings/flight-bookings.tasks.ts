@@ -11,6 +11,7 @@ import { FlightBookingsService } from './flight-bookings.service';
 export class FlightBookingsTasks {
   private readonly logger = new Logger(FlightBookingsTasks.name);
   private expiring = false;
+  private completing = false;
 
   /** FLT-22: Pending Payment holds older than 10 minutes become Expired, seats are released. */
   @Cron(CronExpression.EVERY_MINUTE)
@@ -24,6 +25,23 @@ export class FlightBookingsTasks {
       this.logger.error(`Hold expiry job failed: ${(error as Error).message}`);
     } finally {
       this.expiring = false;
+    }
+  }
+
+  /** GEN-11: Confirmed -> Completed once the trip is over. */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async completeTrips(): Promise<void> {
+    if (this.completing) return;
+    this.completing = true;
+    try {
+      const count = await this.service.completeFinishedBookings();
+      if (count > 0) this.logger.log(`Completed ${count} flight booking(s)`);
+    } catch (error) {
+      this.logger.error(
+        `Booking completion job failed: ${(error as Error).message}`,
+      );
+    } finally {
+      this.completing = false;
     }
   }
 
