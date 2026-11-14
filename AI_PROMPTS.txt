@@ -473,7 +473,7 @@ reviewed the audit and notification calls.
 ================================================================================
 ================================================================================
 Date: 2026-11-14
-Student: Malak
+Student: Malak Haytham
 Tool: Claude
 Related Requirement: PAY-03
 Prompt:
@@ -486,6 +486,22 @@ How the output was used:
 Created refund-calculator.ts and refund-calculator.spec.ts inside
 backend/src/payments, ran the 6 tests, confirmed the build passes, and
 committed to feature/PAY-01-payment-schemas.
+================================================================================
+================================================================================
+Date: 2026-11-14
+Student: Malak
+Tool: Claude
+Related Requirement: PAY-02
+Prompt:
+Add a policy acceptance endpoint: given a booking type and booking id, look up
+the booking through the PayableBookingService contract, enforce ownership and
+that policies weren't already accepted, save a PolicyAcceptance record with
+the policy snapshot, then call markPoliciesAccepted on the booking service.
+How the output was used:
+Created dto/accept-policy.dto.ts, payments.service.ts, payments.controller.ts
+and payments.module.ts inside backend/src/payments, fixed an import-type
+error flagged by VS Code, confirmed the build passes, and committed to
+feature/PAY-01-payment-schemas.
 ================================================================================
 ================================================
 ================================================
