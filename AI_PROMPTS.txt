@@ -471,7 +471,22 @@ Added admin-management service, controller and two DTOs inside backend/src/admin
 registered them in admin.module.ts, tested the endpoints in Swagger, and
 reviewed the audit and notification calls.
 ================================================================================
-
+================================================================================
+Date: 2026-11-14
+Student: Malak
+Tool: Claude
+Related Requirement: PAY-03
+Prompt:
+Write a refund calculator: given cancellation tiers (daysBeforeDeparture,
+refundPercentage), a booking amount and a cancellation anchor date, calculate
+the refund percentage and amount. The rule is the tier with the highest
+days-before threshold not exceeding days remaining, else 0%. Provider-initiated
+cancellations always refund 100%.
+How the output was used:
+Created refund-calculator.ts and refund-calculator.spec.ts inside
+backend/src/payments, ran the 6 tests, confirmed the build passes, and
+committed to feature/PAY-01-payment-schemas.
+================================================================================
 ================================================
 ================================================
 Date: 2026-11-06
