@@ -472,3 +472,136 @@ registered them in admin.module.ts, tested the endpoints in Swagger, and
 reviewed the audit and notification calls.
 ================================================================================
 
+================================================
+================================================
+Date: 2026-11-06
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: Setup (Member 4)
+Prompt:
+Read the project description, onboarding guide and team notes, clone the repo, and work out whether Member 4 can start now or must wait for another member.
+How the output was used:
+Cloned the repo, pulled develop in GitHub Desktop, created backend/.env from .env.example (not committed), started the backend and logged in through Swagger.
+================================================
+
+================================================
+Date: 2026-11-07
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-01, HTL-03, HTL-09
+Prompt:
+Guide me step by step to write the Hotel and Room schemas, their DTOs, and the create-hotel, edit-hotel and create-room endpoints, restricted by role and provider scope.
+How the output was used:
+Wrote the schemas, DTOs, service and controller. Tested in Swagger: create hotel 201, invalid body 400, edit refused for a non-moderator 403. Room and time endpoints could not be tested yet because there is no moderator account.
+================================================
+
+================================================
+Date: 2026-11-07
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-04, HTL-10, HTL-05, HTL-06, HTL-08
+Prompt:
+Write room availability ranges (non-overlapping, end date is the checkout day), embedded cancellation tiers, room edit, date blocking, deactivate and delete rules, and the room status view.
+How the output was used:
+Added the schemas, overlap checks against reservations, and the endpoints. Not tested yet because they are moderator-only and no moderator account exists.
+================================================
+
+================================================
+Date: 2026-11-10
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-11, HTL-12, HTL-15, HTL-02
+Prompt:
+Write hotel search by city or country, dates, guests and rooms, with price and rating filters and sorting, plus the free-rooms list and the public hotel details endpoint.
+How the output was used:
+Moved the free-room logic into one shared helper used by search and rooms-available. Tested in Swagger: public access works, missing location and past dates return 400, empty results return 200. Added averageRating and ratingCount fields for Member 5 to update.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-16, HTL-18, HTL-17
+Prompt:
+Design and write multi-room booking as one operation that prevents overlapping reservations, holds rooms for 10 minutes, expires unpaid holds, and exposes a confirm method for the payment code.
+How the output was used:
+Reviewed and approved the design: one lock record per room per night under a unique index, created together with the reservation in one MongoDB transaction, plus a one-minute expiry timer. Tested only that unauthenticated and admin requests are refused. The booking itself is not tested yet.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-20, HTL-21, HTL-22
+Prompt:
+Write the user's reservation list (Upcoming, Past, Cancelled), cancellation with a refund computed from the hotel's tiers, and the moderator's reservations view.
+How the output was used:
+Added the endpoints and stored the refund amount on the booking for Member 5 to refund through Stripe. Not tested yet because they need a user and a moderator account.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: Debugging and merging
+Prompt:
+Find why the Hotels group in Swagger did not show a new route, and resolve the merge conflicts after merging the cancellation-tiers branch.
+How the output was used:
+A type-check found missing imports in the HTL-08 controller, fixed in a separate commit. Resolved three merge conflicts by keeping both sides' code, and confirmed the backend compiles.
+================================================
+
+================================================
+Date: 2026-11-12
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-03, HTL-04, HTL-05, HTL-06, HTL-08, HTL-09 (testing and merging)
+Prompt:
+Merge develop into the hotel branches, resolve the conflicts, and test the room endpoints in Swagger with the admin login before pushing.
+How the output was used:
+Merged develop into HTL-03, HTL-09 and HTL-08 and resolved the conflicts by keeping both sides. Tested in Swagger: create room 201, duplicate name 409, bad price 400, availability overlap 409, backwards range 400, edit room, block, status view, delete 204, deactivate 200.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-02, HTL-11, HTL-12, HTL-15 (search fix and rename)
+Prompt:
+Find why the hotel search rejected a Swagger request with sortBy=createdAt, fix it, and rename the rating field to match Member 5's name.
+How the output was used:
+Found that the example inherited from the shared pagination DTO made Swagger send createdAt. Set the example to price. Renamed averageRating to avgRating in the schema and in the rating filter and sort. Tested search (found hotel, 5 guests empty, price filters, missing location 400), free rooms and hotel details.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-16, HTL-18, HTL-20, HTL-22 (booking tests)
+Prompt:
+Test booking, holds, my reservations and the hotel reservation list, using a registered test user.
+How the output was used:
+Registered a test user and told the team. Booked room 201 (201), double booking 409, checkout day free, unpaid bookings hidden from my reservations, bad ID 404, hotel reservation list, deactivate and delete refused with reservations (409), and an expired hold released the room.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-10, HTL-17 (payable booking contract)
+Prompt:
+Implement Member 5's payable booking contract for hotel bookings, with the new HotelBooking fields, a policy snapshot, the four service methods, the module token and a Completed status, comparing against the flight version.
+How the output was used:
+Merged HTL-10, added the payment and refund fields and a policy snapshot at booking time, implemented the four methods and the token, made confirmAfterPayment idempotent after comparing with the flight version, and added a Completed sweep and two admin-only test routes to be removed before submission. Tested confirm (second call 409) and the upcoming to past lists. findPayable, markPoliciesAccepted and expireHold through Payments were not exercised.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-05 (edit availability range)
+Prompt:
+Move the edit-availability commit to its own branch from develop, test it and open a small PR.
+How the output was used:
+Cherry-picked the one commit, merged develop, and tested 200, backwards range 400, wrong ID 404 and 409 when a pending reservation would fall outside the range.
+================================================
+
