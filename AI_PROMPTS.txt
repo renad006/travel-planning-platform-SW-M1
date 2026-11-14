@@ -409,6 +409,18 @@ Added GET /flight-bookings and GET /flight-bookings/:id. Other users get 404. Pa
 are masked in lists. Expired holds are detected on read.
 ================================================
 
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-23, GEN-06
+Prompt:
+Generate a downloadable e-ticket PDF for a confirmed booking with airport-local times.
+How the output was used:
+Added GET /flight-bookings/:id/e-ticket using pdfkit. Checked the PDF layout and the local
+time zones by opening the downloaded file.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
