@@ -9,7 +9,12 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -30,6 +35,12 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user account (ACC-01)' })
+  @ApiResponse({ status: 201, description: 'Account created (ACC-01)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed (e.g. weak password, terms not accepted)',
+  })
+  @ApiResponse({ status: 409, description: 'Email is already registered' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -40,6 +51,17 @@ export class AuthController {
   @ApiOperation({
     summary:
       'Log in with email and password; tokens are set as httpOnly cookies (ACC-04, ACC-05, ACC-19)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logged in; access and refresh cookies set (ACC-04, ACC-19)',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Invalid email or password' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Account locked after repeated failed logins (ACC-05), suspended or deactivated',
   })
   login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     return this.authService.login(dto, res);
@@ -52,6 +74,11 @@ export class AuthController {
     summary:
       'Issue a new access and refresh token from the refresh cookie (ACC-06, ACC-19)',
   })
+  @ApiResponse({ status: 200, description: 'New cookies issued (ACC-06)' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh cookie missing, invalid or expired',
+  })
   refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     return this.authService.refresh(refreshCookieOf(req), res);
   }
@@ -63,6 +90,7 @@ export class AuthController {
     summary:
       'Log out: clears the cookies and revokes the refresh token on the server (ACC-06)',
   })
+  @ApiResponse({ status: 204, description: 'Logged out, cookies cleared' })
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -73,6 +101,9 @@ export class AuthController {
   @Patch('change-password')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Change the current password (ACC-08)' })
+  @ApiResponse({ status: 200, description: 'Password changed (ACC-08)' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Not logged in or session expired' })
   changePassword(
     @CurrentUser() user: UserDocument,
     @Body() dto: ChangePasswordDto,
@@ -86,6 +117,8 @@ export class AuthController {
   @ApiOperation({
     summary: 'Return the currently logged-in user (ACC-04, ACC-19)',
   })
+  @ApiResponse({ status: 200, description: 'Current user (no password hash)' })
+  @ApiResponse({ status: 401, description: 'Not logged in or session expired' })
   me(@CurrentUser() user: UserDocument) {
     return user;
   }

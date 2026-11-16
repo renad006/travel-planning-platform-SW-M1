@@ -161,7 +161,60 @@ Write GET /api/admin/audit-logs for admins with pagination and filters for actor
 How the output was used:
 Added findAll to AuditService, a query DTO and the route. Tested in Swagger: filters and pagination work, from after to returns 400, a moderator gets 403.
 ================================================
+================================================
+Date: 2026-11-14
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-01 (in-app notifications)
+Prompt:
+Write the notification endpoints for the current user: a paginated list with an unread filter, mark one notification as read, and mark all as read, with an ownership check on every access, reusing the shared pagination helper.
+How the output was used:
+Added the DTO, service methods, controller and module registration. Tested in Swagger: list returns only my own notifications, marking another user's notification returns 403, an unknown id returns 404, and read-all returns the number updated.
+================================================
 
+================================================
+Date: 2026-11-14
+Student: Renad
+Tool: Claude
+Related Requirement: Payments setup requested by Member 5 (rawBody and Stripe configuration)
+Prompt:
+Enable rawBody in main.ts for Stripe webhook signature verification and add the Stripe secret key, Stripe webhook secret and default currency keys to configuration.ts, reading from environment variables, with placeholders in .env.example.
+How the output was used:
+Passed { rawBody: true } to NestFactory.create, added stripe.secretKey, stripe.webhookSecret and defaultCurrency (defaults to USD) to the config, and added DEFAULT_CURRENCY to .env.example. The build passed, the server started and login still returned 200. Told Member 5 the key names and that the payments module was not yet registered in AppModule.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-04, ACC-05, ACC-07a, ACC-12, ACC-15, ACC-16 (testing)
+Prompt:
+Give me a step by step testing plan for my part in Swagger: registration failures, lockout and unlock, suspended and deactivated login, 401 and 403 cases, immediate block after suspension, password reset, and provider deactivation and reactivation.
+How the output was used:
+Ran every test in Swagger. Duplicate email 409, weak password 400, no token 401, normal user on an admin endpoint 403. Lockout: attempts 1 to 4 returned 401 and attempt 5 returned 403, and login worked again after the lock expired. Deactivated account login returned 403. Admin password reset worked and the temporary password forced a password change. Deactivating an airline hid its flights from search and reactivating brought them back. Found a provider left deactivated since an earlier test and reactivated it.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Renad
+Tool: Claude
+Related Requirement: Swagger documentation (ACC-01, ACC-04, ACC-05, ACC-06, ACC-08, ACC-09, ACC-11, ACC-12, ACC-19)
+Prompt:
+Add @ApiResponse decorators for the success and error codes (400, 401, 403, 409) on the auth and users controllers, with requirement IDs in the descriptions, without changing any logic.
+How the output was used:
+Replaced both controllers with the decorated versions, formatted with Prettier, and the build passed. Swagger now lists the error codes that were previously shown as undocumented.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Renad
+Tool: Claude
+Related Requirement: README (Member 1 delivery)
+Prompt:
+Complete the README setup steps (environment variables, seed command, start and Swagger) and add a section documenting my auth, accounts and admin work with the requirement IDs.
+How the output was used:
+Checked the real seed script name and the variable names in .env.example before writing, then replaced the README with the final version and opened a docs PR.
+================================================
 ================================================
 Date: 2026-11-11
 Student: Arwa

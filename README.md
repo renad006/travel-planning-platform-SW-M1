@@ -6,13 +6,20 @@ Software Project I, Winter 2026. Flight and hotel booking, itinerary planning an
 **Stack:** NestJS (backend), MongoDB Atlas, Next.js (frontend, Milestone 2).
 
 ## Setup (Milestone 1, backend)
-_To be completed before submission: install, create .env, run seed, start server, open Swagger._
 
-1. Copy `.env.example` to `backend/.env` and fill in the values.
+1. Copy `.env.example` to `backend/.env` and fill in the values:
+   - `MONGODB_URI`: the Atlas connection string (shared privately, never commit it)
+   - `JWT_SECRET`, `JWT_ACCESS_EXPIRES_MINUTES` (15), `JWT_REFRESH_EXPIRES_MINUTES` (30)
+   - `PORT`, `FRONTEND_URL`, `NODE_ENV`
+   - `ADMIN_EMAIL`, `ADMIN_PASSWORD`: used by the seed script to create the admin account
+   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DEFAULT_CURRENCY` (payments)
+   - `FXRATES_API_KEY` (exchange rates)
 2. `cd backend` then `npm install`
-3. Run the seed script (instructions to be added)
+3. Seed the database: `npm run seed`. It creates the admin account from `ADMIN_EMAIL` / `ADMIN_PASSWORD` and loads countries, cities, airports and attractions. It is safe to run more than once (upserts).
 4. `npm run start:dev`
 5. Swagger UI: http://localhost:3000/api/docs
+
+To test protected endpoints in Swagger, call `POST /api/auth/login` first. The JWT is stored in httpOnly cookies and sent automatically.
 
 ## Git workflow
 - Long-lived branches: `main` (milestone releases) and `develop` (integration). Never push directly to either.
@@ -24,3 +31,13 @@ _To be completed before submission: install, create .env, run seed, start server
 - The team leader reviews every PR. Resolve review comments before merging.
 - Sync your branch with `develop` regularly.
 - At the milestone release: `develop` into `main`.
+
+## Auth, accounts and admin (Member 1)
+
+- **Auth** (`/api/auth`): register (ACC-01), login (ACC-04), refresh and logout (ACC-06), change password (ACC-08), current user (`/me`, ACC-19). Access and refresh tokens live only in httpOnly cookies, never in the response body.
+- **Lockout** (ACC-05): 5 failed logins lock the account for 15 minutes.
+- **Profile** (`/api/users/me`): get (ACC-11), edit name, phone and preferred currency (ACC-09), deactivate own account (ACC-12).
+- **Admin** (`/api/admin`, admin role only): create moderator accounts (ACC-13), reset a user's password with a one-time temporary password (ACC-07a), audit logs with filters (GEN-07). A user with a temporary password can only call change-password, logout and `/me` until the password is changed.
+- **Notifications** (`/api/notifications`): list, mark one read, mark all read; users only see their own (GEN-01).
+- **Errors:** every error returns `{ statusCode, message, error, timestamp, path }`.
+- **Sessions:** the user is loaded from the database on every request, so suspended or deactivated accounts are blocked immediately.
