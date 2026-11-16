@@ -8,7 +8,12 @@ import {
   NotFoundException,
   Patch,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AccountStatus } from '../common/enums/account-status.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -23,6 +28,8 @@ export class UsersController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get my profile (ACC-11)' })
+  @ApiResponse({ status: 200, description: 'My profile (ACC-11)' })
+  @ApiResponse({ status: 401, description: 'Not logged in or session expired' })
   getMe(@CurrentUser() user: UserDocument) {
     return user;
   }
@@ -31,6 +38,13 @@ export class UsersController {
   @ApiOperation({
     summary: 'Edit my name, phone and preferred currency (ACC-09)',
   })
+  @ApiResponse({ status: 200, description: 'Profile updated (ACC-09)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed or a disallowed field was sent',
+  })
+  @ApiResponse({ status: 401, description: 'Not logged in or session expired' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async updateMe(
     @CurrentUser() user: UserDocument,
     @Body() dto: UpdateProfileDto,
@@ -45,6 +59,8 @@ export class UsersController {
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Deactivate my own account (ACC-12)' })
+  @ApiResponse({ status: 204, description: 'Account deactivated (ACC-12)' })
+  @ApiResponse({ status: 401, description: 'Not logged in or session expired' })
   async deactivateMe(@CurrentUser() user: UserDocument): Promise<void> {
     // Access and refresh tokens stop working at once because both check status.
     await this.usersService.updateById(user.id, {
