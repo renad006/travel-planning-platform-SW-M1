@@ -34,6 +34,7 @@ import type {
   PayableBooking,
   PayableBookingService,
 } from '../payments/payable-booking.interface';
+import { CancelFlightBookingDto } from './dto/cancel-flight-booking.dto';
 import {
   CreateFlightBookingDto,
   FlightLegDto,
@@ -44,6 +45,7 @@ import {
 } from './dto/list-flight-bookings.dto';
 import {
   FLIGHT_BOOKING_EVENTS,
+  FlightBookingCancelledEvent,
   FlightBookingExpiredEvent,
 } from './flight-bookings.events';
 import {
@@ -67,6 +69,7 @@ import {
   toSegmentView,
 } from './flight-bookings.view';
 import {
+  CancelledBy,
   FlightBooking,
   FlightBookingDocument,
   FlightSegment,
@@ -278,6 +281,55 @@ export class FlightBookingsService implements PayableBookingService {
   async get(userId: string, id: string): Promise<BookingView> {
     const booking = await this.findOwned(userId, id);
     const [view] = await this.toViews([booking], false);
+    return view;
+  }
+
+  // ======================================================================
+  // FLT-26: cancellation. The refund itself is calculated and paid by Payments (Member 5):
+  // TODO(Member 5): add GET :id/cancellation-preview with Payments' calculateRefund() once available.
+  // ======================================================================
+  async cancel(userId: string, id: string, dto: CancelFlightBookingDto) {
+    const booking = await this.findOwned(userId, id);
+    const now = new Date();
+    const blocker = this.cancellationBlocker(booking, now);
+    if (blocker) throw new ConflictException(blocker);
+
+    // Atomic claim: only ONE concurrent cancel can win, so seats are never released twice.
+    const claimed = await this.bookingModel.findOneAndUpdate(
+      {
+        _id: booking._id,
+        userId: booking.userId,
+        status: BookingStatus.CONFIRMED,
+        departureTime: { $gt: now },
+      },
+      {
+        $set: {
+          status: BookingStatus.CANCELLED,
+          cancelledAt: now,
+          cancelledBy: CancelledBy.USER,
+          ...(dto.reason ? { cancellationReason: dto.reason } : {}),
+        },
+      },
+      { returnDocument: 'after' },
+    );
+    if (!claimed)
+      throw new ConflictException('This booking can no longer be cancelled');
+
+    const record = claimed.toObject() as unknown as BookingRecord;
+    await this.releaseBookedSeats(record);
+
+    await this.safeNotify({
+      userId,
+      type: 'FLIGHT_BOOKING_CANCELLED',
+      title: 'Flight booking cancelled',
+      message:
+        `Your booking ${record.reference} (${this.routeLabel(record)}) was cancelled. ` +
+        'If a refund applies under the airline policy, you will be notified when it is processed.',
+      related: { type: 'flight_booking', id: record._id.toString() },
+    });
+    this.emitCancelled(record, CancelledBy.USER);
+
+    const [view] = await this.toViews([record], false);
     return view;
   }
 
@@ -904,6 +956,27 @@ export class FlightBookingsService implements PayableBookingService {
     return booking;
   }
 
+  /** Why this booking cannot be cancelled right now (null = it can). */
+  private cancellationBlocker(
+    booking: BookingRecord,
+    now: Date,
+  ): string | null {
+    switch (booking.status) {
+      case BookingStatus.CONFIRMED:
+        return booking.departureTime.getTime() <= now.getTime()
+          ? 'Cancellation after departure is not allowed'
+          : null;
+      case BookingStatus.CANCELLED:
+        return 'This booking is already cancelled';
+      case BookingStatus.PENDING_PAYMENT:
+        return 'This booking is awaiting payment; only Confirmed bookings can be cancelled';
+      case BookingStatus.EXPIRED:
+        return 'This booking expired and was never confirmed';
+      default:
+        return 'This booking is completed and can no longer be cancelled';
+    }
+  }
+
   /**
    * Pending Payment -> Expired. One atomic claim, so the cron, a lazy read, a flight cancellation
    * and Payments can race safely: only the winner releases the seats (exactly once).
@@ -956,6 +1029,47 @@ export class FlightBookingsService implements PayableBookingService {
           (error as Error).message,
       );
     }
+  }
+
+  private async releaseBookedSeats(booking: BookingRecord) {
+    for (const segment of booking.segments) {
+      try {
+        await this.flightsService.releaseBookedSeats(
+          segment.flightId.toString(),
+          segment.cabinClass,
+          booking.seatCount,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Could not return ${booking.seatCount} seat(s) of flight ${segment.flightNumber} ` +
+            `for cancelled booking ${booking._id.toString()}: ${(error as Error).message}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Tells Payments to refund (PAY-03). No refund maths here: Payments calculates it from the
+   * amount, the cancellation anchor and the tiers (airline cancellations are refunded 100%).
+   */
+  private emitCancelled(booking: BookingRecord, cancelledBy: CancelledBy) {
+    const event: FlightBookingCancelledEvent = {
+      bookingId: booking._id.toString(),
+      userId: booking.userId.toString(),
+      reference: booking.reference ?? '',
+      paymentId: booking.paymentId?.toString(),
+      cancelledBy,
+      amount: booking.totalPrice,
+      currency: booking.currency,
+      cancellationAnchor: booking.departureTime,
+      cancellationTiers: (
+        booking.policiesSnapshot?.cancellationTiers ?? []
+      ).map((t) => ({
+        daysBeforeDeparture: t.daysBeforeDeparture,
+        refundPercentage: t.refundPercentage,
+      })),
+    };
+    this.events.emit(FLIGHT_BOOKING_EVENTS.CANCELLED, event);
   }
 
   // ---- small helpers -----------------------------------------------------

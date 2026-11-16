@@ -421,6 +421,19 @@ Added GET /flight-bookings/:id/e-ticket using pdfkit. Checked the PDF layout and
 time zones by opening the downloaded file.
 ================================================
 
+================================================
+Date: 2026-11-16
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-26, PAY-03
+Prompt:
+Implement cancelling a confirmed flight booking (atomic cancellation, seat release) without
+doing any refund maths, because Payments (Member 5) calculates and issues the refund.
+How the output was used:
+Added POST /flight-bookings/:id/cancel. It emits a flight-booking.cancelled event carrying the
+amount, the cancellation anchor and the tiers for Payments. Refund fields stay empty.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
