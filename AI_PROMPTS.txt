@@ -762,3 +762,21 @@ Rewrote payments.service.ts and payments.controller.ts, added
 dto/create-payment.dto.ts inside backend/src/payments, confirmed the build
 passes, and committed to feature/PAY-01-payment-schemas.
 ================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: HTL-23, HTL-24
+Prompt:
+Implement HTL-23 and HTL-24: a Review schema (one review per Completed hotel
+reservation, rating 1-5 plus optional text up to 1000 characters, enforced by
+a unique index on bookingId), POST /api/hotel-bookings/:id/review,
+PATCH /api/reviews/:id, DELETE /api/reviews/:id (owner-only, 404 if not yours),
+and GET /api/hotels/:id/reviews (public, paginated, newest first, with the
+hotel's avgRating and ratingCount). The hotel's rating fields are recalculated
+by a MongoDB aggregation over its reviews on every create, edit and delete.
+How the output was used:
+Created the reviews module (schema, two DTOs, service, controller, module)
+inside backend/src/reviews, confirmed the build passes, and committed to
+feature/PAY-01-payment-schemas.
+================================================================================
