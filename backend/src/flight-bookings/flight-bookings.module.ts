@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FlightsModule } from '../flights/flights.module';
 import { PAYABLE_FLIGHT_BOOKINGS } from '../payments/payable-booking.interface';
 import { FlightBookingsController } from './flight-bookings.controller';
+import { FlightBookingsListener } from './flight-bookings.listener';
 import { FlightBookingsService } from './flight-bookings.service';
 import { FlightBookingsTasks } from './flight-bookings.tasks';
 import {
@@ -32,6 +33,7 @@ import {
     FlightBookingsService,
     FlightBookingsTasks,
     { provide: PAYABLE_FLIGHT_BOOKINGS, useExisting: FlightBookingsService },
+    FlightBookingsListener,
   ],
   exports: [FlightBookingsService, PAYABLE_FLIGHT_BOOKINGS, MongooseModule],
 })

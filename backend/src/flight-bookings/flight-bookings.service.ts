@@ -13,6 +13,7 @@ import { DateTime } from 'luxon';
 import { Model, Types } from 'mongoose';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
+import { FlightScheduleChangedEvent } from '../flights/flight.events';
 import { FlightsService } from '../flights/flights.service';
 import { Airline, AirlineDocument } from '../flights/schemas/airline.schema';
 import { CabinClass } from '../flights/schemas/cabin-inventory.schema';
@@ -63,6 +64,7 @@ import {
   AirportMap,
   BookingRecord,
   BookingView,
+  localTime,
   toBookingView,
   toPassengerView,
   toPricingView,
@@ -573,6 +575,117 @@ export class FlightBookingsService implements PayableBookingService {
       { $set: { status: BookingStatus.COMPLETED } },
     );
     return result.modifiedCount;
+  }
+
+  // ======================================================================
+  // Reactions to Member 2's flight events
+  // ======================================================================
+
+  /**
+   * FLT-06: the airline cancelled a flight.
+   * - pending holds on it are released (Pending -> Expired)
+   * - every Confirmed booking containing it becomes Cancelled (Payments refunds 100%; the whole
+   *   booking, including the other leg of a round trip), seats go back, passengers are notified.
+   */
+  async handleFlightCancelled(
+    flightId: string,
+    flightNumber: string,
+  ): Promise<void> {
+    const flightObjectId = new Types.ObjectId(flightId);
+
+    const pending = await this.bookingModel
+      .find({
+        'segments.flightId': flightObjectId,
+        status: BookingStatus.PENDING_PAYMENT,
+      })
+      .select('_id')
+      .lean();
+    for (const row of pending) await this.expireIfPending(row._id);
+
+    const confirmed = await this.bookingModel
+      .find({
+        'segments.flightId': flightObjectId,
+        status: BookingStatus.CONFIRMED,
+      })
+      .select('_id')
+      .lean();
+    for (const row of confirmed) {
+      const claimed = await this.bookingModel.findOneAndUpdate(
+        { _id: row._id, status: BookingStatus.CONFIRMED },
+        {
+          $set: {
+            status: BookingStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledBy: CancelledBy.AIRLINE,
+            cancellationReason: `Flight ${flightNumber} was cancelled by the airline`,
+          },
+        },
+        { returnDocument: 'after' },
+      );
+      if (!claimed) continue; // the user cancelled at the same moment
+      const record = claimed.toObject() as unknown as BookingRecord;
+      await this.releaseBookedSeats(record);
+      await this.safeNotify({
+        userId: record.userId.toString(),
+        type: 'FLIGHT_BOOKING_CANCELLED',
+        title: `Flight ${flightNumber} was cancelled`,
+        message:
+          `The airline cancelled flight ${flightNumber}, so your booking ${record.reference} ` +
+          `(${this.routeLabel(record)}) was cancelled. ` +
+          'You will receive a full refund and be notified when it is processed.',
+        related: { type: 'flight_booking', id: record._id.toString() },
+      });
+      this.emitCancelled(record, CancelledBy.AIRLINE);
+    }
+  }
+
+  /**
+   * FLT-05: the departure/arrival time of a flight changed. Every Pending and Confirmed booking
+   * keeps a snapshot of the times, so they are updated, and Confirmed passengers are notified.
+   */
+  async handleScheduleChanged(
+    event: FlightScheduleChangedEvent,
+  ): Promise<void> {
+    const flightObjectId = new Types.ObjectId(event.flightId);
+    const bookings = await this.bookingModel.find({
+      'segments.flightId': flightObjectId,
+      status: { $in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] },
+    });
+
+    for (const booking of bookings) {
+      const segment = booking.segments.find((s) =>
+        s.flightId.equals(flightObjectId),
+      );
+      if (!segment) continue;
+      segment.departureTime = event.newDepartureTime;
+      segment.arrivalTime = event.newArrivalTime;
+      const first =
+        booking.segments.find(
+          (s) => s.direction === SegmentDirection.OUTBOUND,
+        ) ?? booking.segments[0];
+      const last = booking.segments[booking.segments.length - 1];
+      booking.departureTime = first.departureTime;
+      booking.endsAt = last.arrivalTime;
+      await booking.save();
+
+      if (booking.status === BookingStatus.CONFIRMED) {
+        const airports = await this.airportMap([segment.originAirport]);
+        const tz = airports.get(segment.originAirport)?.timeZone;
+        const fmt = (d: Date) =>
+          DateTime.fromISO(localTime(d, tz), { setZone: true }).toFormat(
+            "dd LLL yyyy, HH:mm 'local time'",
+          );
+        await this.safeNotify({
+          userId: booking.userId.toString(),
+          type: 'FLIGHT_SCHEDULE_CHANGED',
+          title: `Flight ${event.flightNumber} schedule changed`,
+          message:
+            `Flight ${event.flightNumber} (booking ${booking.reference}) now departs on ` +
+            `${fmt(event.newDepartureTime)} instead of ${fmt(event.oldDepartureTime)}.`,
+          related: { type: 'flight_booking', id: booking._id.toString() },
+        });
+      }
+    }
   }
 
   // ======================================================================
