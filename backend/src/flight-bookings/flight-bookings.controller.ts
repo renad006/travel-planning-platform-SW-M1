@@ -22,6 +22,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import type { UserDocument } from '../users/schemas/user.schema';
+import { CancelFlightBookingDto } from './dto/cancel-flight-booking.dto';
 import { CreateFlightBookingDto } from './dto/create-flight-booking.dto';
 import { ListFlightBookingsDto } from './dto/list-flight-bookings.dto';
 import { FlightBookingsService } from './flight-bookings.service';
@@ -86,6 +87,26 @@ export class FlightBookingsController {
   @ApiNotFoundResponse({ description: 'Not found, or not your booking' })
   get(@CurrentUser() user: UserDocument, @Param('id') id: string) {
     return this.service.get(String(user._id), id);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Cancel my Confirmed booking (FLT-26)',
+    description:
+      'Allowed any time before departure. The booking becomes Cancelled, its seats return to inventory ' +
+      'and Payments is told to refund according to the airline policy (PAY-03). Ask for confirmation first (GEN-03).',
+  })
+  @ApiConflictResponse({
+    description:
+      'Not Confirmed, already cancelled, or the flight already departed',
+  })
+  cancel(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Body() dto: CancelFlightBookingDto,
+  ) {
+    return this.service.cancel(String(user._id), id, dto);
   }
 
   @Get(':id/e-ticket')
