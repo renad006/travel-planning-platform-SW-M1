@@ -714,3 +714,20 @@ How the output was used:
 Cherry-picked the one commit, merged develop, and tested 200, backwards range 400, wrong ID 404 and 409 when a pending reservation would fall outside the range.
 ================================================
 
+================================================================================
+Date: 2026-11-16
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-03
+Prompt:
+Suha's flight booking cancellation (FLT-26) emits flight-booking.cancelled and
+flight-booking.expired events instead of calling Payments directly. Build a
+RefundsService that listens for both: on cancellation, calculate the refund
+with the existing refund-calculator (100% if cancelled by the airline, tiered
+otherwise), create a Refund record, call Stripe's Refunds API, and notify the
+user; on hold expiry, cancel the open Stripe PaymentIntent.
+How the output was used:
+Created refunds.service.ts inside backend/src/payments, registered it and
+NotificationsModule in payments.module.ts, confirmed the build passes, and
+committed to feature/PAY-01-payment-schemas.
+================================================================================
