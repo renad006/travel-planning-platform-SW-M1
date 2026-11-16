@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FlightBookingsModule } from '../flight-bookings/flight-bookings.module';
 import { HotelBookingsModule } from '../hotel-bookings/hotel-bookings.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { RefundsService } from './refunds.service';
 import { Payment, PaymentSchema } from './schemas/payment.schema';
 import {
   PolicyAcceptance,
@@ -28,9 +30,10 @@ import { Refund, RefundSchema } from './schemas/refund.schema';
     ]),
     FlightBookingsModule,
     HotelBookingsModule,
+    NotificationsModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
+  providers: [PaymentsService, RefundsService],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}
