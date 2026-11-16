@@ -434,6 +434,19 @@ Added POST /flight-bookings/:id/cancel. It emits a flight-booking.cancelled even
 amount, the cancellation anchor and the tiers for Payments. Refund fields stay empty.
 ================================================
 
+================================================
+Date: 2026-11-16
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-05, FLT-06 (booking side), GEN-11
+Prompt:
+How should bookings react when Member 2's module cancels a flight or changes its schedule?
+How the output was used:
+Added listeners for flight.cancelled (cancel confirmed bookings as the airline, release seats,
+notify, expire pending holds, emit the cancelled event for Payments) and flight.schedule-changed
+(update booking times, notify passengers).
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
