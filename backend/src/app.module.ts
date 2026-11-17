@@ -24,6 +24,7 @@ import { MailModule } from './mail/mail.module';
 import { ItinerariesModule } from './itineraries/itineraries.module';
 import { ItineraryBudgetModule } from './itineraries/budget/itinerary-budget.module';
 import { BlogModule } from './blog/blog.module';
+import { ItinerarySharingModule } from './itineraries/sharing/itinerary-sharing.module';
 
 @Module({
   imports: [
@@ -48,7 +49,11 @@ import { BlogModule } from './blog/blog.module';
     AdminModule,
     ItinerariesModule,
     ItineraryBudgetModule,
+
     BlogModule,
+
+    ItinerarySharingModule,
+
   ],
   controllers: [AppController],
   providers: [
