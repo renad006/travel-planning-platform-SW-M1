@@ -35,6 +35,16 @@ export class BlogController {
     return this.blogService.findMyPosts(user._id.toString(), dto);
   }
 
+    @Get(':id')
+  @Public()
+  @ApiOperation({ summary: 'Get a single post by ID (BLG-02)' })
+  async getPostById(
+    @Param('id') id: string,
+    @CurrentUser() user?: UserDocument, 
+  ) {
+    return this.blogService.getPostById(id, user?._id?.toString());
+  }
+
     @Patch(':id')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Edit own post (BLG-04)' })

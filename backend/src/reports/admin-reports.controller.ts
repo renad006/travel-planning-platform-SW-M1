@@ -9,19 +9,19 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 
 @ApiTags('Admin - Moderation')
-@Controller('admin/reports')
+@Controller('admin') // <--- FIXED: Changed from 'admin/reports' to just 'admin'
 @Roles(Role.ADMIN)
 export class AdminReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  @Get()
+  @Get('reports') // <--- FIXED: Added 'reports'
   @ApiCookieAuth()
   @ApiOperation({ summary: 'List open reports (GEN-10)' })
   async getOpenReports(@Query() dto: PaginationQueryDto) {
     return this.reportsService.getOpenReports(dto);
   }
 
-  @Patch(':id')
+  @Patch('reports/:id') // <--- FIXED: Added 'reports/'
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Resolve a report (GEN-10)' })
   async resolveReport(
