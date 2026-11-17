@@ -11,9 +11,6 @@ export const HOLD_MINUTES = 10;
 /** FLT-12b: infants pay 10% of the cabin fare. */
 export const INFANT_FARE_RATE = 0.1;
 
-/** PAY-04: one platform currency for every price, payment and refund. */
-export const PLATFORM_CURRENCY = 'USD';
-
 /** Matches the caps of the flight search (max 9 adults / 9 children / 9 infants). */
 export const MAX_PASSENGERS_PER_TYPE = 9;
 

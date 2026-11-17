@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'crypto';
@@ -57,7 +58,6 @@ import {
   HOLD_MINUTES,
   MAX_PASSENGERS_PER_TYPE,
   passengerTypeForAge,
-  PLATFORM_CURRENCY,
   toCents,
 } from './flight-bookings.rules';
 import {
@@ -157,7 +157,13 @@ export class FlightBookingsService implements PayableBookingService {
     private readonly flightsService: FlightsService,
     private readonly notifications: NotificationsService,
     private readonly events: EventEmitter2,
+    private readonly config: ConfigService,
   ) {}
+
+  /** PAY-04: the one platform currency, read from the same config as Payments. */
+  private get platformCurrency(): string {
+    return this.config.get<string>('defaultCurrency') ?? 'USD';
+  }
 
   // ======================================================================
   // FLT-19 / FLT-21: validate the request and show the priced summary
@@ -783,7 +789,7 @@ export class FlightBookingsService implements PayableBookingService {
       segments,
       passengers,
       seatCount,
-      currency: PLATFORM_CURRENCY,
+      currency: this.platformCurrency,
       fareTotal: fromCents(fareTotalCents),
       baggageTotal: fromCents(baggageTotalCents),
       totalPrice: fromCents(fareTotalCents + baggageTotalCents),
