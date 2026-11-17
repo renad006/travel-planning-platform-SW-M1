@@ -1,3 +1,4 @@
+import { PaymentsModule } from './payments/payments.module';
 import { MustChangePasswordGuard } from './common/guards/must-change-password.guard';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -19,6 +20,7 @@ import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
 import { FlightsModule } from './flights/flights.module';
 import { FlightBookingsModule } from './flight-bookings/flight-bookings.module';
 import { AdminModule } from './admin/admin.module';
+import { ItinerariesModule } from './itineraries/itineraries.module';
 
 @Module({
   imports: [
@@ -38,7 +40,9 @@ import { AdminModule } from './admin/admin.module';
     FlightBookingsModule,
     HotelsModule,
     HotelBookingsModule,
+    PaymentsModule,
     AdminModule,
+    ItinerariesModule,
   ],
   controllers: [AppController],
   providers: [
