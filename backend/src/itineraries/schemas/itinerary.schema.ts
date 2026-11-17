@@ -25,6 +25,9 @@ export class BudgetEntry {
   category: 'food' | 'accommodation' | 'in-city-transport' | 'activities';
   @Prop({ required: true, type: Number, min: 0 }) amount: number;
   @Prop({ required: true }) currency: string;
+  // ITN-27: set when the entry comes from a booking linked to this day
+  @Prop({ type: Types.ObjectId }) bookingId?: Types.ObjectId;
+  @Prop({ type: String, enum: ['hotel', 'flight'] }) bookingType?: 'hotel' | 'flight';
 }
 export const BudgetEntrySchema = SchemaFactory.createForClass(BudgetEntry);
 

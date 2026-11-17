@@ -1,6 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { BookingStatus } from '../common/enums/booking-status.enum';
+import { HotelBookingsService } from '../hotel-bookings/hotel-bookings.service';
+import { LinkBookingDto } from './dto/link-booking.dto';
 import { Itinerary, ItineraryDocument, ItineraryDay, Activity } from './schemas/itinerary.schema';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
 import { UpdateItineraryDto } from './dto/update-itinerary.dto';
@@ -25,6 +28,7 @@ export class ItinerariesService {
     @InjectModel(Airport.name) private readonly airportModel: Model<AirportDocument>,
     private readonly flightsService: FlightsService,
     private readonly hotelsService: HotelsService,
+    private readonly hotelBookingsService: HotelBookingsService,
   ) {}
   // --- Phase 1: Itinerary CRUD ---
   async create(userId: string, dto: CreateItineraryDto) {
@@ -286,6 +290,53 @@ export class ItinerariesService {
     };
 
     return this.hotelsService.search(searchDto);
+  }
+
+  // --- ITN-27: link a booked hotel to a day, feeding the budget ---
+  // shortcut: the whole stay total goes on the linked day, not spread across the nights
+  async linkBooking(userId: string, itineraryId: string, dayId: string, dto: LinkBookingDto) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    // someone else's or an unknown reservation is a 404 (HotelBookingsService does that)
+    const booking = await this.hotelBookingsService.findForItinerary(userId, dto.bookingId);
+    if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.COMPLETED) {
+      throw new ConflictException('Only a Confirmed or Completed reservation can be linked');
+    }
+    const dayTime =
+      new Date(doc.startDate).getTime() + (day.dayNumber - 1) * 24 * 60 * 60 * 1000;
+    if (dayTime < booking.checkIn.getTime() || dayTime >= booking.checkOut.getTime()) {
+      throw new BadRequestException(`The stay at ${booking.hotelName} does not cover this day`);
+    }
+    const alreadyLinked = doc.days.some((d) =>
+      d.budgetEntries.some((e) => e.bookingId?.toString() === dto.bookingId),
+    );
+    if (alreadyLinked) {
+      throw new ConflictException('This reservation is already linked in this itinerary');
+    }
+
+    day.budgetEntries.push({
+      category: 'accommodation',
+      amount: booking.totalPrice,
+      currency: booking.currency,
+      bookingId: new Types.ObjectId(dto.bookingId),
+      bookingType: 'hotel',
+    } as never);
+    await doc.save();
+    return this.toDetail(doc);
+  }
+
+  async unlinkBooking(userId: string, itineraryId: string, dayId: string, bookingId: string) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    const index = day.budgetEntries.findIndex((e) => e.bookingId?.toString() === bookingId);
+    if (index === -1) throw new NotFoundException('This reservation is not linked to this day');
+    day.budgetEntries.splice(index, 1);
+    await doc.save();
+    return this.toDetail(doc);
   }
 
   // --- Helpers ---
