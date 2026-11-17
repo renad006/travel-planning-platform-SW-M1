@@ -572,6 +572,8 @@ How the output was used:
 Added GET /shared-itineraries and GET /shared-itineraries/:id in the sharing module. Excluded private, admin-hidden and inactive-author itineraries, and returned no user ids, emails or booking ids. Tested every filter and the privacy rules in Swagger before pushing.
 ================================================
 
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
@@ -861,7 +863,7 @@ Prompt:
 Fix a backend startup crash ("Neither apiKey nor config.authenticator provided") caused by PaymentsService and RefundsService constructing the Stripe client unconditionally, and align payments.service.ts getPayment/assertPayable/processed-event signatures with the rest of the module.
 How the output was used:
 Made the Stripe client nullable in both PaymentsService and RefundsService, added a warning log plus a requireStripe() guard that throws ServiceUnavailableException for HTTP-triggered payment methods, and had RefundsService log and mark refunds FAILED instead of crashing when Stripe is not configured, mirroring the existing MailService graceful-degradation pattern. Verified with npm run build (0 errors) and a clean npm run start:dev with all payments routes mapped.
-================================================================================
+
 ================================================================================
 Date: 2026-11-17
 Student: Nourhan 
@@ -980,5 +982,56 @@ Link a booked hotel to an itinerary day so it feeds the budget. Nourhan agreed I
 How the output was used:
 Added POST and DELETE routes under itineraries/:id/days/:dayId/bookings. A link needs a Confirmed or Completed reservation of the user whose stay covers that day, and can only be made once per itinerary. It adds an accommodation budget entry marked with the booking id and two optional fields on the budget entry schema. Tested with curl: link 201 with a 300 USD entry, linking twice 409, a day outside the stay 400, unknown or malformed ids 404 and 400, a Pending Payment booking 409, unlink 200 and 404 the second time. Only the hotel half is done, the flight half waits for Suha.
 ================================================
+
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-01
+Prompt:
+Help me set up the initial NestJS folder structure, create Mongoose schemas for Post, Comment, and Like, and write the DTO and controller for creating a blog post.
+How the output was used:
+Used the generated schemas and DTO directly. Adjusted the controller route to /api/posts and used the @CurrentUser decorator to grab the authorId.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-02, BLG-03, BLG-04
+Prompt:
+Add endpoints to get all published posts with pagination and search, get my posts, update a post, and delete a post. Include ownership checks.
+How the output was used:
+Implemented the GET, PATCH, and DELETE routes. Added logic to check if the current user's ID matches the authorId before allowing edits or deletions.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-05, BLG-07
+Prompt:
+Help me implement the comment system. I need to add a comment to a published post, and edit/delete comments. How do I split the controllers so the route is /api/comments/:id instead of /api/posts/comments/:id?
+How the output was used:
+Created CreateCommentDto with a 500 char limit. Added comment logic to BlogService, created a separate CommentsController, and used $inc to update the post's commentCount and interactionScore.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-06
+Prompt:
+How do I implement a like/unlike system in MongoDB that prevents a user from liking the same post twice under concurrent requests?
+How the output was used:
+Created a Like schema with a unique compound index. Used a try/catch block to catch MongoDB duplicate key errors (code 11000) and return a 409 Conflict. Used $inc for atomic counter updates.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <noor>
+Tool: deepseek
+Related Requirement: BLG-06
+Prompt:
+Help me implement like and unlike functionality for blog posts. How do I prevent a user from liking the same post twice at the database level?
+How the output was used:
+Created endpoints in the controller and service. Used a unique compound index in MongoDB and caught the duplicate key error (code 11000) to throw a 409 Conflict.
+================================================================================
 
 
