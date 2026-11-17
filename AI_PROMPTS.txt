@@ -836,7 +836,7 @@ unauthenticated 401, delete 200, post-delete 404).
 ================================================================================
 
 Date: 2026-11-17
-Student: Member 6
+Student: Nourhan 
 Tool: Claude
 Related Requirement: ITN-05, ITN-07, ITN-08, ITN-09
 Prompt:
@@ -849,7 +849,7 @@ increment correctly from the start date.
 ================================================================================
 ================================================================================
 Date: 2026-11-17
-Student: Member 6
+Student: Nourhan 
 Tool: Claude
 Related Requirement: ITN-10, ITN-12
 Prompt:
@@ -860,4 +860,14 @@ How the output was used:
 Added Create/Update DTOs, Service methods, and Controller endpoints including the FileInterceptor. 
 Tested in Swagger: add activity 201, edit 200, upload image 201 (verified accessible via static URL), 
 remove image 200, delete activity 200.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Nourhan
+Tool: Claude
+Related Requirement: ITN-25, ITN-26
+Prompt:
+Implement integration endpoints for itineraries: search flights from day 1's city (ITN-26) and search hotels for a specific city group's dates (ITN-25). Reused Member 2's FlightsService and Member 4's HotelsService. Looked up city IDs and airport codes using Member 1's reference data.
+How the output was used:
+Added the integration methods to ItinerariesService, injected FlightsService and HotelsService, exported HotelsService from HotelsModule, and created the DTOs/endpoints. Tested in Swagger: ITN-26 returned 200 (empty array because no seeded flights on that date), ITN-25 returned 200 and successfully found the "Nile View Hotel" in Cairo.
 ================================================================================

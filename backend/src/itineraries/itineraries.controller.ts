@@ -1,5 +1,5 @@
 import { 
-  Body, Controller, Delete, Get, Param, Patch, Post, 
+  Body, Controller, Delete, Get, Param, Patch, Post, Query,
   BadRequestException, UploadedFile, UseInterceptors 
 } from '@nestjs/common';
 import { 
@@ -23,6 +23,8 @@ import { UpdateItineraryDayDto } from './dto/update-itinerary-day.dto';
 import { ReorderDayDto } from './dto/reorder-day.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { SearchItineraryFlightsDto } from './dto/search-itinerary-flights.dto';
+import { SearchItineraryHotelsDto } from './dto/search-itinerary-hotels.dto';
 
 // 1. Setup the upload options FIRST
 const ACTIVITY_IMG_DIR = join(process.cwd(), 'uploads', 'activities');
@@ -195,5 +197,21 @@ export class ItinerariesController {
     @Body('imageUrl') imageUrl: string
   ) {
     return this.service.removeImageFromActivity(user._id.toString(), id, dayId, activityId, imageUrl);
+  }
+
+    // --- Phase 4: Integration Endpoints ---
+
+  @Get(':id/flights')
+  @ApiOperation({ summary: 'ITN-26: search flights from itinerary day 1 city (one-way or round-trip)' })
+  @ApiOkResponse({ description: 'Flights found' })
+  searchFlights(@CurrentUser() user: UserDocument, @Param('id') id: string, @Query() dto: SearchItineraryFlightsDto) {
+    return this.service.searchItineraryFlights(user._id.toString(), id, dto);
+  }
+
+  @Get(':id/hotels')
+  @ApiOperation({ summary: 'ITN-25: search hotels for a specific city group in the itinerary' })
+  @ApiOkResponse({ description: 'Hotels found' })
+  searchHotels(@CurrentUser() user: UserDocument, @Param('id') id: string, @Query() dto: SearchItineraryHotelsDto) {
+    return this.service.searchItineraryHotels(user._id.toString(), id, dto);
   }
 }

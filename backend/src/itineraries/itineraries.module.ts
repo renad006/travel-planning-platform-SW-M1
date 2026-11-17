@@ -3,9 +3,21 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ItinerariesController } from './itineraries.controller';
 import { ItinerariesService } from './itineraries.service';
 import { Itinerary, ItinerarySchema } from './schemas/itinerary.schema';
+import { FlightsModule } from '../flights/flights.module';
+import { HotelsModule } from '../hotels/hotels.module';
+import { City, CitySchema } from '../reference-data/schemas/city.schema';
+import { Airport, AirportSchema } from '../reference-data/schemas/airport.schema';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Itinerary.name, schema: ItinerarySchema }])],
+  imports: [
+    MongooseModule.forFeature([
+      { name: Itinerary.name, schema: ItinerarySchema },
+      { name: City.name, schema: CitySchema },
+      { name: Airport.name, schema: AirportSchema },
+    ]),
+    FlightsModule,
+    HotelsModule,
+  ],
   controllers: [ItinerariesController],
   providers: [ItinerariesService],
   exports: [ItinerariesService],
