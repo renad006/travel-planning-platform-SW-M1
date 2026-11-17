@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument, PostStatus } from './schemas/post.schema';
 import { CreatePostDto } from './dto/create-post.dto';
-import { UpdatePostDto } from './dto/update-post.dto'; // <--- ADDED
+import { UpdatePostDto } from './dto/update-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Comment, CommentDocument } from './schemas/comment.schema';
@@ -11,18 +11,18 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { Like, LikeDocument } from './schemas/like.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { UploadsService } from '../uploads/uploads.service';
-@Injectable()
 
+@Injectable()
 export class BlogService {
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
-    @InjectModel(Comment.name) private commentModel: Model<CommentDocument>, // <--- ADD THIS
+    @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
-        @InjectModel(User.name) private userModel: Model<UserDocument>, // <--- ADD THIS
-            private readonly uploadsService: UploadsService, // <--- ADD THIS
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly uploadsService: UploadsService,
   ) {}
 
-    async findAllPublished(dto: GetPostsDto) {
+  async findAllPublished(dto: GetPostsDto) {
     const { page = 1, limit = 10, tag, q } = dto;
     const skip = (page - 1) * limit;
 
@@ -34,7 +34,17 @@ export class BlogService {
 
     if (q) {
       const regex = new RegExp(q, 'i');
-      query.$or = [{ title: regex }, { tags: regex }, { body: regex }];
+      
+      // Fix: Search by author name too
+      const matchingUsers = await this.userModel.find({ name: regex }).select('_id');
+      const userIds = matchingUsers.map((u) => u._id);
+
+      query.$or = [
+        { title: regex },
+        { tags: regex },
+        { body: regex },
+        { authorId: { $in: userIds } },
+      ];
     }
 
     const [posts, total] = await Promise.all([
@@ -54,7 +64,6 @@ export class BlogService {
   }
 
   async createPost(authorId: string, dto: CreatePostDto): Promise<PostDocument> {
-    // 1. Normalize tags (lowercase, trim, remove duplicates) - BLG-08
     let normalizedTags: string[] = [];
     if (dto.tags && dto.tags.length > 0) {
       normalizedTags = [
@@ -62,10 +71,8 @@ export class BlogService {
       ];
     }
 
-    // 2. Determine publishedAt date
     const publishedAt = dto.status === PostStatus.PUBLISHED ? new Date() : undefined;
 
-    // 3. Create and save
     const newPost = new this.postModel({
       authorId: new Types.ObjectId(authorId),
       title: dto.title,
@@ -78,7 +85,7 @@ export class BlogService {
     return newPost.save();
   }
 
-    async findMyPosts(authorId: string, dto: PaginationQueryDto) {
+  async findMyPosts(authorId: string, dto: PaginationQueryDto) {
     const { page = 1, limit = 10 } = dto;
     const skip = (page - 1) * limit;
 
@@ -87,7 +94,7 @@ export class BlogService {
     const [posts, total] = await Promise.all([
       this.postModel
         .find(query)
-        .sort({ createdAt: -1 }) // Newest first
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
@@ -100,20 +107,17 @@ export class BlogService {
     };
   }
 
-
-    async updatePost(postId: string, authorId: string, dto: UpdatePostDto) {
+  async updatePost(postId: string, authorId: string, dto: UpdatePostDto) {
     const post = await this.postModel.findById(postId);
 
     if (!post) {
       throw new NotFoundException('Post not found');
     }
 
-    // Ownership check (BLG-04)
     if (post.authorId.toString() !== authorId) {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
-    // Update fields if they exist in the DTO
     if (dto.title) post.title = dto.title;
     if (dto.body) post.body = dto.body;
     
@@ -131,26 +135,30 @@ export class BlogService {
     return post.save();
   }
 
+  // Fix: Proper cascade delete for images, likes, and comments
   async deletePost(postId: string, authorId: string) {
     const post = await this.postModel.findById(postId);
-
-    if (!post) {
-      throw new NotFoundException('Post not found');
-    }
-
+    if (!post) throw new NotFoundException('Post not found');
     if (post.authorId.toString() !== authorId) {
       throw new ForbiddenException('You can only delete your own posts');
     }
 
+    // 1. Delete associated images from disk
+    for (const img of post.images) {
+      await this.uploadsService.deleteFile('posts', img.filename);
+    }
+
+    // 2. Delete likes and comments
+    await this.likeModel.deleteMany({ postId: post._id });
+    await this.commentModel.deleteMany({ postId: post._id });
+
+    // 3. Delete the post
     await post.deleteOne();
-    
-    // Note: Later we will also delete comments, likes, and images here. 
-    // For now, we just delete the post itself.
     
     return { message: 'Post deleted successfully' };
   }
 
-    async addComment(postId: string, authorId: string, dto: CreateCommentDto) {
+  async addComment(postId: string, authorId: string, dto: CreateCommentDto) {
     const post = await this.postModel.findById(postId);
     if (!post || post.status !== PostStatus.PUBLISHED) {
       throw new NotFoundException('Post not found or not published');
@@ -162,7 +170,6 @@ export class BlogService {
       text: dto.text,
     });
 
-    // Increment counters on the post
     await this.postModel.updateOne(
       { _id: postId },
       { $inc: { commentCount: 1, interactionScore: 1 } },
@@ -195,7 +202,6 @@ export class BlogService {
 
     await comment.deleteOne();
 
-    // Decrement counters
     await this.postModel.updateOne(
       { _id: comment.postId },
       { $inc: { commentCount: -1, interactionScore: -1 } },
@@ -204,14 +210,13 @@ export class BlogService {
     return { message: 'Comment deleted' };
   }
 
-    async likePost(postId: string, userId: string) {
+  async likePost(postId: string, userId: string) {
     const post = await this.postModel.findById(postId);
     if (!post || post.status !== PostStatus.PUBLISHED) {
       throw new NotFoundException('Post not found or not published');
     }
 
     try {
-      // The unique index in the schema prevents duplicates
       await this.likeModel.create({
         postId: new Types.ObjectId(postId),
         userId: new Types.ObjectId(userId),
@@ -224,7 +229,7 @@ export class BlogService {
 
       return { message: 'Post liked' };
     } catch (error) {
-           if ((error as any).code === 11000) { // MongoDB Duplicate Key Error 
+      if ((error as any).code === 11000) {
         throw new ConflictException('You have already liked this post');
       }
       throw error;
@@ -249,7 +254,7 @@ export class BlogService {
     return { message: 'Post unliked' };
   }
 
-    async getAuthorProfile(authorId: string, dto: PaginationQueryDto) {
+  async getAuthorProfile(authorId: string, dto: PaginationQueryDto) {
     const user = await this.userModel.findById(authorId).select('name createdAt');
     if (!user) {
       throw new NotFoundException('Author not found');
@@ -258,7 +263,6 @@ export class BlogService {
     const { page = 1, limit = 10 } = dto;
     const skip = (page - 1) * limit;
 
-    // Only show published, non-hidden posts
     const query = {
       authorId: new Types.ObjectId(authorId),
       status: PostStatus.PUBLISHED,
@@ -278,7 +282,7 @@ export class BlogService {
     return {
       author: {
         name: user.name,
-        joinDate: (user as any).createdAt, // Mongoose timestamps add this automatically
+        joinDate: (user as any).createdAt,
       },
       posts: {
         data: posts,
@@ -288,14 +292,13 @@ export class BlogService {
     };
   }
 
-    async addImageToPost(postId: string, authorId: string, file: Express.Multer.File) {
+  async addImageToPost(postId: string, authorId: string, file: Express.Multer.File) {
     const post = await this.postModel.findById(postId);
     if (!post) throw new NotFoundException('Post not found');
     if (post.authorId.toString() !== authorId) {
       throw new ForbiddenException('You can only add images to your own posts');
     }
 
-    // GEN-08: Max 5 images per post
     if (post.images.length >= 5) {
       throw new BadRequestException('Maximum 5 images allowed per post');
     }
@@ -319,13 +322,46 @@ export class BlogService {
 
     const image = post.images[imageIndex];
     
-    // Remove from array
     post.images.splice(imageIndex, 1);
     await post.save();
 
-    // Delete file from disk
     await this.uploadsService.deleteFile('posts', image.filename);
 
     return { message: 'Image deleted' };
+  }
+
+  // Fix: Added the missing GET single post method
+  async getPostById(postId: string, userId?: string) {
+    const post = await this.postModel.findById(postId);
+    if (!post) throw new NotFoundException('Post not found');
+
+    const authorIdStr = post.authorId.toString();
+
+    if (post.status === PostStatus.DRAFT && authorIdStr !== userId) {
+      throw new NotFoundException('Post not found');
+    }
+    if (post.isHidden && authorIdStr !== userId) {
+       throw new NotFoundException('Post not found');
+    }
+
+    const comments = await this.commentModel
+      .find({ postId: post._id, isHidden: false })
+      .sort({ createdAt: 1 })
+      .exec();
+
+    let likedByMe = false;
+    if (userId) {
+      const like = await this.likeModel.findOne({ 
+        postId: post._id, 
+        userId: new Types.ObjectId(userId) 
+      });
+      if (like) likedByMe = true;
+    }
+
+    return {
+      ...post.toJSON(),
+      comments,
+      likedByMe,
+    };
   }
 }
