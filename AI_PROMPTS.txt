@@ -1034,4 +1034,14 @@ How the output was used:
 Created endpoints in the controller and service. Used a unique compound index in MongoDB and caught the duplicate key error (code 11000) to throw a 409 Conflict.
 ================================================================================
 
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-12
+Prompt:
+Help me create a public author page endpoint that returns the author's name, join date, published posts, and public itineraries.
+How the output was used:
+Injected the User model into the BlogModule. Created AuthorsController and a service method that fetches the user, their published/non-hidden posts, and returns an empty array for itineraries as a TODO for Member 6.
+================================================================================
 

@@ -9,6 +9,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Comment, CommentDocument } from './schemas/comment.schema';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { Like, LikeDocument } from './schemas/like.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 
@@ -17,6 +18,7 @@ export class BlogService {
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>, // <--- ADD THIS
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
+        @InjectModel(User.name) private userModel: Model<UserDocument>, // <--- ADD THIS
   ) {}
 
     async findAllPublished(dto: GetPostsDto) {
@@ -244,5 +246,44 @@ export class BlogService {
     );
 
     return { message: 'Post unliked' };
+  }
+
+    async getAuthorProfile(authorId: string, dto: PaginationQueryDto) {
+    const user = await this.userModel.findById(authorId).select('name createdAt');
+    if (!user) {
+      throw new NotFoundException('Author not found');
+    }
+
+    const { page = 1, limit = 10 } = dto;
+    const skip = (page - 1) * limit;
+
+    // Only show published, non-hidden posts
+    const query = {
+      authorId: new Types.ObjectId(authorId),
+      status: PostStatus.PUBLISHED,
+      isHidden: false,
+    };
+
+    const [posts, total] = await Promise.all([
+      this.postModel
+        .find(query)
+        .sort({ publishedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.postModel.countDocuments(query).exec(),
+    ]);
+
+    return {
+      author: {
+        name: user.name,
+        joinDate: (user as any).createdAt, // Mongoose timestamps add this automatically
+      },
+      posts: {
+        data: posts,
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      },
+      itineraries: [], // TODO BLG-12: Fetch public itineraries from Member 6's model when ready
+    };
   }
 }
