@@ -8,13 +8,24 @@ import { CreateItineraryDayDto } from './dto/create-itinerary-day.dto';
 import { UpdateItineraryDayDto } from './dto/update-itinerary-day.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { FlightsService } from '../flights/flights.service';
+import { HotelsService } from '../hotels/hotels.service';
+import { City, CityDocument } from '../reference-data/schemas/city.schema';
+import { Airport, AirportDocument } from '../reference-data/schemas/airport.schema';
+import { SearchFlightsDto, FlightSortBy, SortOrder } from '../flights/dto/search-flights.dto';
+import { SearchHotelsQueryDto } from '../hotels/dto/search-hotels-query.dto';
+import { SearchItineraryFlightsDto } from './dto/search-itinerary-flights.dto';
+import { SearchItineraryHotelsDto } from './dto/search-itinerary-hotels.dto';
 
 @Injectable()
 export class ItinerariesService {
   constructor(
     @InjectModel(Itinerary.name) private readonly itineraryModel: Model<ItineraryDocument>,
+    @InjectModel(City.name) private readonly cityModel: Model<CityDocument>,
+    @InjectModel(Airport.name) private readonly airportModel: Model<AirportDocument>,
+    private readonly flightsService: FlightsService,
+    private readonly hotelsService: HotelsService,
   ) {}
-
   // --- Phase 1: Itinerary CRUD ---
   async create(userId: string, dto: CreateItineraryDto) {
     const doc = await this.itineraryModel.create({
@@ -196,6 +207,85 @@ export class ItinerariesService {
     activity.images = activity.images.filter((img) => img !== imageUrl);
     await doc.save();
     return this.toDetail(doc);
+  }
+
+    // --- Phase 4: Integration Endpoints ---
+
+  async searchItineraryFlights(userId: string, itineraryId: string, dto: SearchItineraryFlightsDto) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    if (!doc.days.length) throw new BadRequestException('Itinerary has no days to search flights for');
+
+    const firstDay = doc.days[0];
+    const lastDay = doc.days[doc.days.length - 1];
+
+    // 1. Find the city in the database to get its airport
+    const city = await this.cityModel.findOne({ name: new RegExp(`^${firstDay.city}$`, 'i') }).lean();
+    if (!city) throw new NotFoundException(`City ${firstDay.city} not found in reference data`);
+
+    // Find the first airport in that city
+    const airport = await this.airportModel.findOne({ cityId: city.cityId }).lean();
+    if (!airport) throw new NotFoundException(`No airport found for city ${firstDay.city}`);
+
+    // 2. Calculate dates
+    const start = new Date(doc.startDate).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const departureDate = new Date(start).toISOString().split('T')[0];
+    const returnDate = doc.days.length > 1 ? new Date(start + (lastDay.dayNumber - 1) * oneDayMs).toISOString().split('T')[0] : undefined;
+
+    // 3. Build the DTO for Member 2's service
+    const searchDto: SearchFlightsDto = {
+      origin: dto.origin,
+      destination: airport.iataCode,
+      departureDate,
+      returnDate,
+      adults: dto.adults,
+      children: dto.children,
+      infants: dto.infants,
+      page: 1,
+      limit: 10,
+      sortBy: FlightSortBy.PRICE,
+      sortOrder: SortOrder.ASC,
+    };
+
+    return this.flightsService.searchFlights(searchDto);
+  }
+
+  async searchItineraryHotels(userId: string, itineraryId: string, dto: SearchItineraryHotelsDto) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const dayIndex = doc.days.findIndex(d => d._id.toString() === dto.dayId);
+    if (dayIndex === -1) throw new NotFoundException('Day not found');
+
+    const cityName = doc.days[dayIndex].city;
+    
+    // Find the contiguous group of days for this city
+    let startIndex = dayIndex;
+    while (startIndex > 0 && doc.days[startIndex - 1].city === cityName) startIndex--;
+    let endIndex = dayIndex;
+    while (endIndex < doc.days.length - 1 && doc.days[endIndex + 1].city === cityName) endIndex++;
+
+    // Calculate check-in and check-out dates
+    const start = new Date(doc.startDate).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const checkIn = new Date(start + (doc.days[startIndex].dayNumber - 1) * oneDayMs).toISOString().split('T')[0];
+    const checkOut = new Date(start + (doc.days[endIndex].dayNumber) * oneDayMs).toISOString().split('T')[0];
+
+    // Find the city in the database
+    const city = await this.cityModel.findOne({ name: new RegExp(`^${cityName}$`, 'i') }).lean();
+    if (!city) throw new NotFoundException(`City ${cityName} not found in reference data`);
+
+    // Build the DTO for Member 4's service
+    const searchDto: SearchHotelsQueryDto = {
+      cityId: city.cityId,
+      checkIn,
+      checkOut,
+      guests: dto.guests,
+      rooms: dto.rooms || 1,
+      page: 1,
+      limit: 10,
+      sortOrder: 'asc',
+    };
+
+    return this.hotelsService.search(searchDto);
   }
 
   // --- Helpers ---
