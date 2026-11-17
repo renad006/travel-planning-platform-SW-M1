@@ -25,6 +25,7 @@ import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { SearchItineraryFlightsDto } from './dto/search-itinerary-flights.dto';
 import { SearchItineraryHotelsDto } from './dto/search-itinerary-hotels.dto';
+import { LinkBookingDto } from './dto/link-booking.dto';
 
 // 1. Setup the upload options FIRST
 const ACTIVITY_IMG_DIR = join(process.cwd(), 'uploads', 'activities');
@@ -213,5 +214,31 @@ export class ItinerariesController {
   @ApiOkResponse({ description: 'Hotels found' })
   searchHotels(@CurrentUser() user: UserDocument, @Param('id') id: string, @Query() dto: SearchItineraryHotelsDto) {
     return this.service.searchItineraryHotels(user._id.toString(), id, dto);
+  }
+
+  // --- ITN-27: link booked hotels to days ---
+  @Post(':id/days/:dayId/bookings')
+  @ApiOperation({ summary: 'ITN-27: link one of my hotel reservations to a day (adds an accommodation budget entry)' })
+  @ApiCreatedResponse({ description: 'Reservation linked' })
+  @ApiBadRequestResponse({ description: 'The stay does not cover this day' })
+  linkBooking(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Param('dayId') dayId: string,
+    @Body() dto: LinkBookingDto,
+  ) {
+    return this.service.linkBooking(user._id.toString(), id, dayId, dto);
+  }
+
+  @Delete(':id/days/:dayId/bookings/:bookingId')
+  @ApiOperation({ summary: 'ITN-27: unlink a reservation from a day (removes its budget entry)' })
+  @ApiOkResponse({ description: 'Reservation unlinked' })
+  unlinkBooking(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Param('dayId') dayId: string,
+    @Param('bookingId') bookingId: string,
+  ) {
+    return this.service.unlinkBooking(user._id.toString(), id, dayId, bookingId);
   }
 }

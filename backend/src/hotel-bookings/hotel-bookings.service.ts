@@ -417,6 +417,20 @@ export class HotelBookingsService
     return booking;
   }
 
+  // ITN-27: what the itinerary needs to link one of the user's reservations to a day
+  async findForItinerary(userId: string, id: string) {
+    const booking = await this.findMine(userId, id);
+    return {
+      id: booking.id as string,
+      hotelName: (booking.hotelId as unknown as { name?: string }).name ?? 'Hotel',
+      status: booking.status,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      totalPrice: booking.totalPrice,
+      currency: booking.currency ?? this.platformCurrency,
+    };
+  }
+
   // HTL-16 + HTL-18: hold all selected rooms together as one Pending Payment reservation
   async create(userId: string, dto: CreateHotelBookingDto) {
     const { checkIn, checkOut } = parseStay(dto.checkIn, dto.checkOut);

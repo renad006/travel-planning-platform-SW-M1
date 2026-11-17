@@ -926,3 +926,15 @@ How the output was used:
 Created a hotel moderator for the test hotel, changed its temporary password and tested 15 cases: own hotel 200, another hotel 403, admin-only and user-only routes 403, and the must-change-password block before the first change. Compared the sheets with the code: everything for HTL-01 to HTL-22 is built and tested except the refund creation for HTL-21, which waits on Member 5's hotel listeners.
 ================================================
 
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: ITN-27
+Prompt:
+Link a booked hotel to an itinerary day so it feeds the budget. Nourhan agreed I could add it to her itineraries module.
+How the output was used:
+Added POST and DELETE routes under itineraries/:id/days/:dayId/bookings. A link needs a Confirmed or Completed reservation of the user whose stay covers that day, and can only be made once per itinerary. It adds an accommodation budget entry marked with the booking id and two optional fields on the budget entry schema. Tested with curl: link 201 with a 300 USD entry, linking twice 409, a day outside the stay 400, unknown or malformed ids 404 and 400, a Pending Payment booking 409, unlink 200 and 404 the second time. Only the hotel half is done, the flight half waits for Suha.
+================================================
+

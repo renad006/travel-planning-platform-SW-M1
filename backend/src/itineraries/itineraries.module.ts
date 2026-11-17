@@ -5,6 +5,7 @@ import { ItinerariesService } from './itineraries.service';
 import { Itinerary, ItinerarySchema } from './schemas/itinerary.schema';
 import { FlightsModule } from '../flights/flights.module';
 import { HotelsModule } from '../hotels/hotels.module';
+import { HotelBookingsModule } from '../hotel-bookings/hotel-bookings.module';
 import { City, CitySchema } from '../reference-data/schemas/city.schema';
 import { Airport, AirportSchema } from '../reference-data/schemas/airport.schema';
 
@@ -17,6 +18,7 @@ import { Airport, AirportSchema } from '../reference-data/schemas/airport.schema
     ]),
     FlightsModule,
     HotelsModule,
+    HotelBookingsModule,
   ],
   controllers: [ItinerariesController],
   providers: [ItinerariesService],
