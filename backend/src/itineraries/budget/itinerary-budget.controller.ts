@@ -50,6 +50,7 @@ export class ItineraryBudgetController {
   @ApiOperation({ summary: 'ITN-14: edit a budget entry' })
   @ApiOkResponse({ description: 'Budget entry updated' })
   @ApiBadRequestResponse({ description: 'Nothing to change, or an invalid value' })
+  @ApiConflictResponse({ description: 'The entry comes from a linked booking (ITN-27): unlink the booking instead' })
   updateBudgetEntry(
     @CurrentUser() user: UserDocument,
     @Param('id') id: string,
@@ -64,6 +65,7 @@ export class ItineraryBudgetController {
   @HttpCode(200)
   @ApiOperation({ summary: 'ITN-14: delete a budget entry' })
   @ApiOkResponse({ description: 'Budget entry deleted' })
+  @ApiConflictResponse({ description: 'The entry comes from a linked booking (ITN-27): unlink the booking instead' })
   deleteBudgetEntry(
     @CurrentUser() user: UserDocument,
     @Param('id') id: string,
