@@ -18,5 +18,6 @@ import { HotelBooking, HotelBookingSchema, } from '../hotel-bookings/schemas/hot
     ])],
     controllers: [HotelsController],
     providers: [HotelsService],
+    exports: [HotelsService],
 })
 export class HotelsModule {}
