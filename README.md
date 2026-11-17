@@ -54,3 +54,4 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Likes** (`/api/posts/:id/like`): Like/unlike a post (BLG-06).
 - **Tags** (`/api/tags/:tag/posts`): Get posts by tag (BLG-08).
 - **Rules**: Max 5 tags per post (max 30 chars each). Interaction score determines search ranking. Ownership checks prevent editing others' content.
+- **Comments** (`/api/posts/:id/comments`, `/api/comments`): Add a comment to a published post (BLG-05), edit/delete own comments (BLG-07).

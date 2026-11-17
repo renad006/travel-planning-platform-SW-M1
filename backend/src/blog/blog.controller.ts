@@ -8,6 +8,7 @@ import type { UserDocument } from '../users/schemas/user.schema';
 import { PaginationQueryDto } from './../common/dto/pagination-query.dto';
 import { GetPostsDto } from './dto/get-posts.dto'; // <--- ADDED (for public route)
 import { Public } from '../common/decorators/public.decorator'; // <--- ADDED (for public route)
+import { CreateCommentDto } from './dto/create-comment.dto';
 
 @ApiTags('Blog - Posts')
 @Controller('posts')
@@ -20,7 +21,7 @@ export class BlogController {
   async findAllPosts(@Query() dto: GetPostsDto) {
     return this.blogService.findAllPublished(dto);
   }
-  
+
   @Get('mine')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Get my own posts including drafts (BLG-03)' })
@@ -59,6 +60,21 @@ export class BlogController {
   ) {
     return this.blogService.createPost(user._id.toString(), createPostDto);
   }
+
+    @Post(':id/comments')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Add a comment (BLG-05)' })
+  async addComment(
+    @Param('id') id: string,
+    @CurrentUser() user: UserDocument,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.blogService.addComment(id, user._id.toString(), dto);
+  }
+
+
+
+ 
 
   
 }

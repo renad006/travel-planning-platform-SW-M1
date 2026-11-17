@@ -6,11 +6,16 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto'; // <--- ADDED
 import { GetPostsDto } from './dto/get-posts.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { Comment, CommentDocument } from './schemas/comment.schema';
+import { CreateCommentDto } from './dto/create-comment.dto';
+
 @Injectable()
 
 export class BlogService {
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
+    @InjectModel(Comment.name) private commentModel: Model<CommentDocument>, // <--- ADD THIS
+ 
   ) {}
 
     async findAllPublished(dto: GetPostsDto) {
@@ -139,5 +144,59 @@ export class BlogService {
     // For now, we just delete the post itself.
     
     return { message: 'Post deleted successfully' };
+  }
+
+    async addComment(postId: string, authorId: string, dto: CreateCommentDto) {
+    const post = await this.postModel.findById(postId);
+    if (!post || post.status !== PostStatus.PUBLISHED) {
+      throw new NotFoundException('Post not found or not published');
+    }
+
+    const comment = await this.commentModel.create({
+      postId: new Types.ObjectId(postId),
+      authorId: new Types.ObjectId(authorId),
+      text: dto.text,
+    });
+
+    // Increment counters on the post
+    await this.postModel.updateOne(
+      { _id: postId },
+      { $inc: { commentCount: 1, interactionScore: 1 } },
+    );
+
+    return comment;
+  }
+
+  async updateComment(commentId: string, authorId: string, dto: CreateCommentDto) {
+    const comment = await this.commentModel.findById(commentId);
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+    if (comment.authorId.toString() !== authorId) {
+      throw new ForbiddenException('You can only edit your own comments');
+    }
+
+    comment.text = dto.text;
+    return comment.save();
+  }
+
+  async deleteComment(commentId: string, authorId: string) {
+    const comment = await this.commentModel.findById(commentId);
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+    if (comment.authorId.toString() !== authorId) {
+      throw new ForbiddenException('You can only delete your own comments');
+    }
+
+    await comment.deleteOne();
+
+    // Decrement counters
+    await this.postModel.updateOne(
+      { _id: comment.postId },
+      { $inc: { commentCount: -1, interactionScore: -1 } },
+    );
+
+    return { message: 'Comment deleted' };
   }
 }
