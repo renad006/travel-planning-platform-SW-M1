@@ -780,3 +780,16 @@ Created the reviews module (schema, two DTOs, service, controller, module)
 inside backend/src/reviews, confirmed the build passes, and committed to
 feature/PAY-01-payment-schemas.
 ================================================================================
+Date: 2026-11-17
+Student: Nourhan 
+Tool: Claude
+Related Requirement: ITN-01, ITN-03
+Prompt:
+Design the Itinerary mongoose schema (embedded days/activities/budget/transport) and implement
+the CRUD + list endpoints for ITN-01 and ITN-03, with ownership checks returning 404 for non-owners.
+How the output was used:
+Created backend/src/itineraries with the schema, DTOs, service, controller and module;
+registered ItinerariesModule in app.module.ts; tested all 12 Swagger cases (create 201,
+list 200, get 200, update 200, empty title 400, unknown id 404, admin cross-owner 404,
+unauthenticated 401, delete 200, post-delete 404).
+================================================================================
