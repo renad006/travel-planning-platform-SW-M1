@@ -871,3 +871,13 @@ Implement integration endpoints for itineraries: search flights from day 1's cit
 How the output was used:
 Added the integration methods to ItinerariesService, injected FlightsService and HotelsService, exported HotelsService from HotelsModule, and created the DTOs/endpoints. Tested in Swagger: ITN-26 returned 200 (empty array because no seeded flights on that date), ITN-25 returned 200 and successfully found the "Nile View Hotel" in Cairo.
 ================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Nourhan
+Tool: Claude
+Related Requirement: GEN-10 (Admin moderation)
+Prompt:
+Add the isHidden boolean field (default false) to the Itinerary schema and expose it in the API responses (toSummary and toDetail) so Member 7's admin dashboard can hide and unhide itineraries.
+How the output was used:
+Updated the schema and the service mapping. Left ITN-09 subtotal logic to Member 3 to avoid merge conflicts. Tested in Swagger: GET endpoints now return "isHidden": false.
+================================================================================
