@@ -881,3 +881,48 @@ Add the isHidden boolean field (default false) to the Itinerary schema and expos
 How the output was used:
 Updated the schema and the service mapping. Left ITN-09 subtotal logic to Member 3 to avoid merge conflicts. Tested in Swagger: GET endpoints now return "isHidden": false.
 ================================================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: PAY-04, HTL-01, GEN-08
+Prompt:
+Member 5 asked for one currency source: read the hotel booking currency from config instead of the hardcoded USD, then add hotel photo upload and removal like the flight logo and itinerary image uploads.
+How the output was used:
+Read the platform currency from config in the booking service and removed the schema default, with a fallback for older bookings. Added POST and DELETE hotel photo routes (JPG or PNG, 5 MB, at most 5, random file names, atomic cap, file removed when refused). Tested in Swagger: upload 201, text file 400, 6 MB file 413, sixth photo 409, remove 200, removing it again 404, and no stray files on disk.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-21, PAY-03
+Prompt:
+Write hotel reservation cancellation with a refund preview, following how flights hand refunds to Payments through events, and use Member 5's refund calculator instead of my own math.
+How the output was used:
+Added hotel-booking.cancelled and hotel-booking.expired events, a refund preview, and a cancel that claims the booking and frees its nights in one transaction. Found the HTL-21 commit had never been pushed and merged it into the final branch. Tested with curl: pending 409, preview 100% of 200, cancel 200, cancelling again 409, the nights were released and the same dates could be booked again. The refund itself needs the hotel listeners in RefundsService, which Member 5 has not added yet.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-08, GEN-12, ITN-25, HTL-18
+Prompt:
+Fix the last hotel issues: malformed ids returning 500, deactivated rooms shown as Available, hotel cities that do not match the seeded city list the itinerary search uses, and prove that simultaneous bookings cannot double-book.
+How the output was used:
+Added a pipe that answers 400 for a malformed id on 13 hotel routes, reported deactivated rooms as Blocked, and made hotel create and edit check the city against the seeded cities and its country. Tested with curl: bad ids 400, unknown ids 404, wrong city or country 400, and five simultaneous bookings of the same room gave one 201 and four 409.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-01 to HTL-22
+Prompt:
+Create a hotel moderator and test moderator scope, then check every hotel requirement in the Mandatory and Bonus sheets against what is built.
+How the output was used:
+Created a hotel moderator for the test hotel, changed its temporary password and tested 15 cases: own hotel 200, another hotel 403, admin-only and user-only routes 403, and the must-change-password block before the first change. Compared the sheets with the code: everything for HTL-01 to HTL-22 is built and tested except the refund creation for HTL-21, which waits on Member 5's hotel listeners.
+================================================
+

@@ -19,6 +19,7 @@ import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { UpdatePoliciesDto } from './dto/update-policies.dto';
+import { ParseObjectIdPipe } from './parse-object-id.pipe';
 
 @ApiTags('Hotels')
 @ApiCookieAuth()
@@ -36,7 +37,7 @@ export class HotelsController {
     @Patch(':id')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Edit my hotel profile (HTL-01)' })
-    async update(@Param('id') id: string, @Body() dto: UpdateHotelDto) {
+    async update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateHotelDto) {
         const hotel = await this.hotelsService.update(id, dto);
         if (!hotel) {
             throw new NotFoundException('Hotel not found');
@@ -47,7 +48,7 @@ export class HotelsController {
     @Post(':id/rooms')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Add a room to my hotel (HTL-03)' })
-    createRoom(@Param('id') id: string, @Body() dto: CreateRoomDto) {
+    createRoom(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: CreateRoomDto) {
         return this.hotelsService.createRoom(id, dto);
     }
 
@@ -55,8 +56,8 @@ export class HotelsController {
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Add a bookable date range to a room (HTL-04)' })
     addAvailability(
-        @Param('id') id: string,
-        @Param('roomId') roomId: string,
+        @Param('id', ParseObjectIdPipe) id: string,
+        @Param('roomId', ParseObjectIdPipe) roomId: string,
         @Body() dto: CreateAvailabilityDto,
     ) {
         return this.hotelsService.addAvailability(id, roomId, dto);
@@ -66,8 +67,8 @@ export class HotelsController {
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Edit a room beds, occupancy and price (HTL-05)' })
     updateRoom(
-        @Param('id') id: string,
-        @Param('roomId') roomId: string,
+        @Param('id', ParseObjectIdPipe) id: string,
+        @Param('roomId', ParseObjectIdPipe) roomId: string,
         @Body() dto: UpdateRoomDto,
     ) {
         return this.hotelsService.updateRoom(id, roomId, dto);
@@ -77,9 +78,9 @@ export class HotelsController {
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Edit a bookable date range of a room (HTL-05)' })
     updateAvailability(
-        @Param('id') id: string,
-        @Param('roomId') roomId: string,
-        @Param('availabilityId') availabilityId: string,
+        @Param('id', ParseObjectIdPipe) id: string,
+        @Param('roomId', ParseObjectIdPipe) roomId: string,
+        @Param('availabilityId', ParseObjectIdPipe) availabilityId: string,
         @Body() dto: CreateAvailabilityDto,
     ) {
         return this.hotelsService.updateAvailability(id, roomId, availabilityId, dto);
@@ -89,8 +90,8 @@ export class HotelsController {
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Block a date range for a room (HTL-06)' })
     blockRoom(
-        @Param('id') id: string,
-        @Param('roomId') roomId: string,
+        @Param('id', ParseObjectIdPipe) id: string,
+        @Param('roomId', ParseObjectIdPipe) roomId: string,
         @Body() dto: CreateAvailabilityDto,
     ) {
         return this.hotelsService.blockRoom(id, roomId, dto);
@@ -99,7 +100,7 @@ export class HotelsController {
     @Patch(':id/rooms/:roomId/deactivate')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Deactivate a room (HTL-06)' })
-    deactivateRoom(@Param('id') id: string, @Param('roomId') roomId: string) {
+    deactivateRoom(@Param('id', ParseObjectIdPipe) id: string, @Param('roomId', ParseObjectIdPipe) roomId: string) {
         return this.hotelsService.deactivateRoom(id, roomId);
     }
 
@@ -107,7 +108,7 @@ export class HotelsController {
     @HttpCode(HttpStatus.NO_CONTENT)
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Delete a never-reserved room (HTL-06)' })
-    deleteRoom(@Param('id') id: string, @Param('roomId') roomId: string) {
+    deleteRoom(@Param('id', ParseObjectIdPipe) id: string, @Param('roomId', ParseObjectIdPipe) roomId: string) {
         return this.hotelsService.deleteRoom(id, roomId);
     }
 
@@ -122,7 +123,7 @@ export class HotelsController {
     @Public()
     @ApiOperation({ summary: 'List free rooms for a stay (HTL-15)' })
     availableRooms(
-        @Param('id') id: string,
+        @Param('id', ParseObjectIdPipe) id: string,
         @Query() query: RoomsAvailableQueryDto,
     ) {
         return this.hotelsService.availableRooms(id, query);
@@ -131,28 +132,28 @@ export class HotelsController {
     @Get(':id')
     @Public()
     @ApiOperation({ summary: 'Hotel details, with free rooms if dates are given (HTL-02)' })
-    details(@Param('id') id: string, @Query() query: HotelDetailsQueryDto) {
+    details(@Param('id', ParseObjectIdPipe) id: string, @Query() query: HotelDetailsQueryDto) {
         return this.hotelsService.details(id, query);
     }
 
     @Get(':id/reservations')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Reservations of my hotel (HTL-22)' })
-    reservations(@Param('id') id: string, @Query() query: PaginationQueryDto) {
+    reservations(@Param('id', ParseObjectIdPipe) id: string, @Query() query: PaginationQueryDto) {
         return this.hotelsService.reservations(id, query);
     }
 
     @Get(':id/availability')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'View room status for a date range (HTL-08)' })
-    roomStatuses(@Param('id') id: string, @Query() query: RoomStatusQueryDto) {
+    roomStatuses(@Param('id', ParseObjectIdPipe) id: string, @Query() query: RoomStatusQueryDto) {
         return this.hotelsService.roomStatuses(id, query);
     }
 
     @Put(':id/policies')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Set my hotel cancellation tiers (HTL-10)' })
-    setPolicies(@Param('id') id: string, @Body() dto: UpdatePoliciesDto) {
+    setPolicies(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdatePoliciesDto) {
         return this.hotelsService.setPolicies(id, dto);
     }
 

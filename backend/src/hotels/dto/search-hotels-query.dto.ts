@@ -18,7 +18,7 @@ const trim = ({ value }: { value: unknown }) =>
 // HTL-11: search by city or country, dates, guests and rooms.
 // checkOut is the checkout day, same rule as room availability.
 export class SearchHotelsQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ example: 'CAI', description: 'City identifier' })
+  @ApiPropertyOptional({ example: 'cairo', description: 'City id from the seeded city list' })
   @IsOptional()
   @Transform(trim)
   @IsString()

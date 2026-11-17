@@ -5,6 +5,7 @@ import { isValidObjectId, Model } from 'mongoose';
 import { basename, join } from 'path';
 import { HOTEL_PHOTO_DIR, HOTEL_PHOTO_URL_PREFIX, MAX_HOTEL_PHOTOS } from './hotel-photo-upload';
 import { CreateHotelDto } from './dto/create-hotel.dto';
+import { City, CityDocument } from '../reference-data/schemas/city.schema';
 import { Hotel, HotelDocument } from './schemas/hotel.schema';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
@@ -35,17 +36,43 @@ export class HotelsService {
         @InjectModel(RoomAvailability.name) private readonly availabilityModel: Model<RoomAvailabilityDocument>,
         @InjectModel(RoomBlock.name) private readonly blockModel: Model<RoomBlockDocument>,
         @InjectModel(HotelBooking.name)private readonly bookingModel: Model<HotelBookingDocument>,
+        @InjectModel(City.name) private readonly cityModel: Model<CityDocument>,
     ) {}
 
-    create(dto: CreateHotelDto) {
+    // GEN-12: the itinerary search (ITN-25) finds hotels by the seeded city id, so a hotel's
+    // city has to come from that list and its country has to be that city's country
+    private async assertKnownCity(cityId: string, countryCode: string) {
+        const city = await this.cityModel.findOne({ cityId }).lean().exec();
+        if (!city) {
+            throw new BadRequestException(
+                `cityId "${cityId}" is not in the city list (for example "cairo")`,
+            );
+        }
+        if (city.countryCode !== countryCode.toUpperCase()) {
+            throw new BadRequestException(
+                `countryCode "${countryCode}" does not match the city "${cityId}" (${city.countryCode})`,
+            );
+        }
+    }
+
+    async create(dto: CreateHotelDto) {
+        await this.assertKnownCity(dto.cityId, dto.countryCode);
         return this.hotelModel.create(dto);
     }
-    
+
     findById(id: string) {
         return this.hotelModel.findById(id).exec();
     }
 
-    update(id: string, dto: UpdateHotelDto) {
+    async update(id: string, dto: UpdateHotelDto) {
+        if (dto.cityId || dto.countryCode) {
+            const current = await this.findById(id);
+            if (!current) return null; // the controller answers 404
+            await this.assertKnownCity(
+                dto.cityId ?? current.cityId,
+                dto.countryCode ?? current.countryCode,
+            );
+        }
         return this.hotelModel
             .findByIdAndUpdate(id, dto, { returnDocument: 'after' })
             .exec();
@@ -255,6 +282,10 @@ export class HotelsService {
                         status: 'Booked',
                         reference: booking.reference ?? null,
                     };
+                }
+                // a deactivated room cannot be booked, so it is reported as Blocked (HTL-06, HTL-08)
+                if (!room.isActive) {
+                    return { roomId: room.id as string, name: room.name, status: 'Blocked' };
                 }
                 const blocked = await this.blockModel.exists({
                     roomId: room._id,
