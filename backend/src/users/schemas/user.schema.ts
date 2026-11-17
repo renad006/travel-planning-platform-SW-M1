@@ -52,6 +52,13 @@ export class User {
 
   @Prop({ type: MongooseSchema.Types.ObjectId })
   assignedProviderId?: Types.ObjectId;
+
+  // ACC-07: only the SHA-256 hash of the emailed reset token is stored
+  @Prop({ type: String, select: false })
+  passwordResetTokenHash?: string;
+
+  @Prop({ type: Date, select: false })
+  passwordResetExpiresAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -64,6 +71,8 @@ UserSchema.set('toJSON', {
     delete safe.password;
     delete safe.failedLoginCount;
     delete safe.lockUntil;
+    delete safe.passwordResetTokenHash;
+    delete safe.passwordResetExpiresAt;
     return safe;
   },
 });

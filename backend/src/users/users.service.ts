@@ -33,6 +33,22 @@ export class UsersService {
   }
 
   updateById(id: string, update: UpdateQuery<UserDocument>) {
-    return this.userModel.findByIdAndUpdate(id, update, { returnDocument: 'after' }).exec();
+    return this.userModel
+      .findByIdAndUpdate(id, update, { returnDocument: 'after' })
+      .exec();
+  }
+
+  /** ACC-07: atomically consume a valid reset token, so it works only once. */
+  consumeResetToken(tokenHash: string, update: UpdateQuery<UserDocument>) {
+    return this.userModel
+      .findOneAndUpdate(
+        {
+          passwordResetTokenHash: tokenHash,
+          passwordResetExpiresAt: { $gt: new Date() },
+        },
+        update,
+        { returnDocument: 'after' },
+      )
+      .exec();
   }
 }

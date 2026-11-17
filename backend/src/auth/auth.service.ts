@@ -18,6 +18,9 @@ import { UsersService } from '../users/users.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { MailService } from '../mail/mail.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import {
   RefreshToken,
   RefreshTokenDocument,
@@ -33,6 +36,9 @@ const MAX_FAILED_LOGINS = 5; // ACC-05
 const LOCK_MINUTES = 15; // ACC-05
 const INVALID_CREDENTIALS = 'Invalid email or password'; // ACC-04
 const SESSION_EXPIRED = 'Session expired, please log in again';
+const RESET_TOKEN_MINUTES = 30; // ACC-07
+const FORGOT_PASSWORD_RESPONSE =
+  'If an account with this email exists, a password reset link has been sent';
 
 @Injectable()
 export class AuthService {
@@ -40,6 +46,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly mailService: MailService,
     @InjectModel(RefreshToken.name)
     private readonly refreshModel: Model<RefreshTokenDocument>,
   ) {}
@@ -180,6 +187,57 @@ export class AuthService {
     await this.refreshModel.deleteMany({ userId: user._id }).exec();
     await this.issueTokens(updated, res);
     return { message: 'Password changed successfully' };
+  }
+
+  // ACC-07: the response is identical whether or not the email exists
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+    if (user && user.status === AccountStatus.ACTIVE) {
+      const token = randomBytes(32).toString('hex');
+      // Overwrites any earlier token, so a newer request invalidates the old one
+      await this.usersService.updateById(user.id, {
+        passwordResetTokenHash: this.hashToken(token),
+        passwordResetExpiresAt: new Date(
+          Date.now() + RESET_TOKEN_MINUTES * 60_000,
+        ),
+      });
+      const link = `${this.config.get<string>('frontendUrl')}/reset-password?token=${token}`;
+      void this.mailService.send({
+        to: user.email,
+        subject: 'Reset your password',
+        text:
+          `Hi ${user.name},\n\n` +
+          `We received a request to reset your password.\n\n` +
+          `Reset link: ${link}\n` +
+          `Reset token (for API testing): ${token}\n\n` +
+          `The link expires in ${RESET_TOKEN_MINUTES} minutes and can be used once. ` +
+          `If you did not request this, ignore this email.`,
+      });
+    }
+    return { message: FORGOT_PASSWORD_RESPONSE };
+  }
+
+  // ACC-07: single-use, 30 minutes, invalidated by a newer request
+  async resetPassword(dto: ResetPasswordDto) {
+    const password = await hash(dto.newPassword, BCRYPT_ROUNDS);
+    const user = await this.usersService.consumeResetToken(
+      this.hashToken(dto.token),
+      {
+        $set: {
+          password,
+          mustChangePassword: false,
+          failedLoginCount: 0,
+          lockUntil: null,
+        },
+        $unset: { passwordResetTokenHash: '', passwordResetExpiresAt: '' },
+      },
+    );
+    if (!user) {
+      throw new BadRequestException('Reset link is invalid or has expired');
+    }
+    // Sign out every existing session
+    await this.refreshModel.deleteMany({ userId: user._id }).exec();
+    return { message: 'Password has been reset. You can now log in.' };
   }
 
   private async registerFailedLogin(userId: string): Promise<never> {
