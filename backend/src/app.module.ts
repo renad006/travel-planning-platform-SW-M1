@@ -23,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
 import { MailModule } from './mail/mail.module';
 import { ItinerariesModule } from './itineraries/itineraries.module';
 import { ItineraryBudgetModule } from './itineraries/budget/itinerary-budget.module';
+import { BlogModule } from './blog/blog.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ItineraryBudgetModule } from './itineraries/budget/itinerary-budget.mod
     AdminModule,
     ItinerariesModule,
     ItineraryBudgetModule,
+    BlogModule,
   ],
   controllers: [AppController],
   providers: [
