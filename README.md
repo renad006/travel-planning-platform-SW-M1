@@ -44,3 +44,13 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Sessions:** the user is loaded from the database on every request, so suspended or deactivated accounts are blocked immediately.
 - **Bonus, forgot password by email** (ACC-07): `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`. The emailed token is single use, expires after 30 minutes, and only its hash is stored.
 - **Bonus, email notifications** (GEN-01-B): every in-app notification also sends an email copy. Email problems never break the action that triggered the notification.
+
+
+
+## Blog and Community (Member 7)
+
+- **Posts** (`/api/posts`): Create a post (BLG-01), get published posts with pagination/tag/keyword search (BLG-02), get own posts including drafts (BLG-03), update/delete own posts (BLG-04).
+- **Comments** (`/api/posts/:id/comments`, `/api/comments`): Add a comment (BLG-05), edit/delete own comments (BLG-07).
+- **Likes** (`/api/posts/:id/like`): Like/unlike a post (BLG-06).
+- **Tags** (`/api/tags/:tag/posts`): Get posts by tag (BLG-08).
+- **Rules**: Max 5 tags per post (max 30 chars each). Interaction score determines search ranking. Ownership checks prevent editing others' content.
