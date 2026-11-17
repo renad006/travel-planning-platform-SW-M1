@@ -744,3 +744,52 @@ Created refunds.service.ts inside backend/src/payments, registered it and
 NotificationsModule in payments.module.ts, confirmed the build passes, and
 committed to feature/PAY-01-payment-schemas.
 ================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01
+Prompt:
+Implement PAY-01: POST /api/payments (create a Stripe PaymentIntent for a
+Pending Payment booking, blocked unless policies were accepted and the hold
+hasn't expired), POST /api/payments/:id/retry (cancel the old intent, create
+a new one), GET /api/payments/:id (owner or admin), and POST /api/payments/webhook
+(@Public, raw-body signature verification, idempotent via ProcessedStripeEvent,
+handles succeeded/failed/canceled, refunds in full if the hold expired before
+the payment landed).
+How the output was used:
+Rewrote payments.service.ts and payments.controller.ts, added
+dto/create-payment.dto.ts inside backend/src/payments, confirmed the build
+passes, and committed to feature/PAY-01-payment-schemas.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: HTL-23, HTL-24
+Prompt:
+Implement HTL-23 and HTL-24: a Review schema (one review per Completed hotel
+reservation, rating 1-5 plus optional text up to 1000 characters, enforced by
+a unique index on bookingId), POST /api/hotel-bookings/:id/review,
+PATCH /api/reviews/:id, DELETE /api/reviews/:id (owner-only, 404 if not yours),
+and GET /api/hotels/:id/reviews (public, paginated, newest first, with the
+hotel's avgRating and ratingCount). The hotel's rating fields are recalculated
+by a MongoDB aggregation over its reviews on every create, edit and delete.
+How the output was used:
+Created the reviews module (schema, two DTOs, service, controller, module)
+inside backend/src/reviews, confirmed the build passes, and committed to
+feature/PAY-01-payment-schemas.
+================================================================================
+Date: 2026-11-17
+Student: Nourhan 
+Tool: Claude
+Related Requirement: ITN-01, ITN-03
+Prompt:
+Design the Itinerary mongoose schema (embedded days/activities/budget/transport) and implement
+the CRUD + list endpoints for ITN-01 and ITN-03, with ownership checks returning 404 for non-owners.
+How the output was used:
+Created backend/src/itineraries with the schema, DTOs, service, controller and module;
+registered ItinerariesModule in app.module.ts; tested all 12 Swagger cases (create 201,
+list 200, get 200, update 200, empty title 400, unknown id 404, admin cross-owner 404,
+unauthenticated 401, delete 200, post-delete 404).
+================================================================================

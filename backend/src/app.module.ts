@@ -20,6 +20,7 @@ import { FlightsModule } from './flights/flights.module';
 import { FlightBookingsModule } from './flight-bookings/flight-bookings.module';
 import { AdminModule } from './admin/admin.module';
 import { MailModule } from './mail/mail.module';
+import { ItinerariesModule } from './itineraries/itineraries.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MailModule } from './mail/mail.module';
     HotelsModule,
     HotelBookingsModule,
     AdminModule,
+    ItinerariesModule,
   ],
   controllers: [AppController],
   providers: [
