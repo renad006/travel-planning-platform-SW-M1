@@ -7,6 +7,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, isValidObjectId, Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -61,7 +62,13 @@ export class HotelBookingsService
     @InjectModel(RoomBlock.name)
     private readonly blockModel: Model<RoomBlockDocument>,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
+
+  /** PAY-04: the one platform currency, read from the same config as Payments. */
+  private get platformCurrency(): string {
+    return this.config.get<string>('defaultCurrency') ?? 'USD';
+  }
 
   onModuleInit() {
     this.timer = setInterval(() => {
@@ -157,7 +164,7 @@ export class HotelBookingsService
       ownerId: booking.userId.toString(),
       providerId: booking.hotelId.toString(),
       amount: booking.totalPrice,
-      currency: booking.currency,
+      currency: booking.currency ?? this.platformCurrency, // older bookings have none stored
       status: booking.status,
       holdExpiresAt: booking.holdExpiresAt ?? null,
       policiesAcceptedAt: booking.policiesAcceptedAt ?? null,
@@ -383,6 +390,7 @@ export class HotelBookingsService
               checkIn,
               checkOut,
               totalPrice,
+              currency: this.platformCurrency,
               status: BookingStatus.PENDING_PAYMENT,
               holdExpiresAt: new Date(Date.now() + HOLD_MINUTES * 60_000),
               // PAY-02: what the user will accept, frozen at booking time

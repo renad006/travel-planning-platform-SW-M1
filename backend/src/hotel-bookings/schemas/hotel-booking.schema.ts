@@ -91,9 +91,9 @@ export class HotelBooking {
     @Prop({ unique: true, sparse: true })
     reference?: string;
 
-    // PAY-04: one platform currency, same default as flight bookings
-    @Prop({ type: String, default: 'USD', uppercase: true, trim: true })
-    currency: string;
+    // PAY-04: set by the service from config (defaultCurrency), never defaulted here
+    @Prop({ type: String, uppercase: true, trim: true })
+    currency?: string;
 
     // set by confirmAfterPayment when the payment succeeds
     @Prop()
