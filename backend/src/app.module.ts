@@ -22,6 +22,7 @@ import { FlightBookingsModule } from './flight-bookings/flight-bookings.module';
 import { AdminModule } from './admin/admin.module';
 import { MailModule } from './mail/mail.module';
 import { ItinerariesModule } from './itineraries/itineraries.module';
+import { ItineraryBudgetModule } from './itineraries/budget/itinerary-budget.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ItinerariesModule } from './itineraries/itineraries.module';
     PaymentsModule,
     AdminModule,
     ItinerariesModule,
+    ItineraryBudgetModule,
   ],
   controllers: [AppController],
   providers: [
