@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Itinerary, ItineraryDocument, ItineraryDay } from './schemas/itinerary.schema';
+import { Itinerary, ItineraryDocument, ItineraryDay, Activity } from './schemas/itinerary.schema';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
 import { UpdateItineraryDto } from './dto/update-itinerary.dto';
 import { CreateItineraryDayDto } from './dto/create-itinerary-day.dto';
 import { UpdateItineraryDayDto } from './dto/update-itinerary-day.dto';
+import { CreateActivityDto } from './dto/create-activity.dto';
+import { UpdateActivityDto } from './dto/update-activity.dto';
 
 @Injectable()
 export class ItinerariesService {
@@ -116,6 +118,86 @@ export class ItinerariesService {
     return this.toDetail(doc);
   }
 
+  // --- Phase 3: Activities Logic ---
+  async addActivity(userId: string, itineraryId: string, dayId: string, dto: CreateActivityDto) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    const newActivity: Activity = {
+      _id: new Types.ObjectId(),
+      name: dto.name,
+      description: dto.description,
+      time: dto.time,
+      cost: dto.cost,
+      currency: dto.currency,
+      images: [],
+    };
+
+    day.activities.push(newActivity);
+    await doc.save();
+    return this.toDetail(doc);
+  }
+
+  async updateActivity(userId: string, itineraryId: string, dayId: string, activityId: string, dto: UpdateActivityDto) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    const activity = day.activities.find((a) => a._id.toString() === activityId);
+    if (!activity) throw new NotFoundException('Activity not found');
+
+    if (dto.name !== undefined) activity.name = dto.name;
+    if (dto.description !== undefined) activity.description = dto.description;
+    if (dto.time !== undefined) activity.time = dto.time;
+    if (dto.cost !== undefined) activity.cost = dto.cost;
+    if (dto.currency !== undefined) activity.currency = dto.currency;
+
+    await doc.save();
+    return this.toDetail(doc);
+  }
+
+  async deleteActivity(userId: string, itineraryId: string, dayId: string, activityId: string) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    const initialLength = day.activities.length;
+    day.activities = day.activities.filter((a) => a._id.toString() !== activityId);
+    
+    if (day.activities.length === initialLength) throw new NotFoundException('Activity not found');
+    
+    await doc.save();
+    return this.toDetail(doc);
+  }
+
+  // --- ITN-12: Image Logic ---
+  async addImageToActivity(userId: string, itineraryId: string, dayId: string, activityId: string, imageUrl: string) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    const activity = day.activities.find((a) => a._id.toString() === activityId);
+    if (!activity) throw new NotFoundException('Activity not found');
+
+    activity.images.push(imageUrl);
+    await doc.save();
+    return this.toDetail(doc);
+  }
+
+  async removeImageFromActivity(userId: string, itineraryId: string, dayId: string, activityId: string, imageUrl: string) {
+    const doc = await this.getOwnedDoc(userId, itineraryId);
+    const day = doc.days.find((d) => d._id.toString() === dayId);
+    if (!day) throw new NotFoundException('Day not found');
+
+    const activity = day.activities.find((a) => a._id.toString() === activityId);
+    if (!activity) throw new NotFoundException('Activity not found');
+
+    activity.images = activity.images.filter((img) => img !== imageUrl);
+    await doc.save();
+    return this.toDetail(doc);
+  }
+
   // --- Helpers ---
   private async getOwnedDoc(userId: string, id: string): Promise<ItineraryDocument> {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Itinerary not found');
@@ -129,7 +211,7 @@ export class ItinerariesService {
     const oneDayMs = 24 * 60 * 60 * 1000;
     
     return doc.days.map((day) => ({
-      ...(day as any).toObject(), // <--- The fix is here
+      ...(day as any).toObject(),
       date: new Date(start + (day.dayNumber - 1) * oneDayMs).toISOString().split('T')[0],
     }));
   }
@@ -155,7 +237,7 @@ export class ItinerariesService {
       startDate: doc.startDate,
       visibility: doc.visibility,
       daysCount: doc.days.length,
-      days: this.calculateDates(doc), // Now using calculateDates!
+      days: this.calculateDates(doc),
       originalAuthorId: doc.originalAuthorId?.toString() ?? null,
       originalItineraryId: doc.originalItineraryId?.toString() ?? null,
       updatedAt: (doc as any).updatedAt,
