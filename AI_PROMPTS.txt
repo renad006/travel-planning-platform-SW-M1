@@ -561,6 +561,17 @@ How the output was used:
 Added PATCH /itineraries/:id/visibility in a separate sharing module with an atomic owner-only update. Checked every case in Swagger and Compass before pushing.
 ================================================
 
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-21
+Prompt:
+Implement public search (keyword, country, city, duration) and the read-only view of public itineraries for guests and users, without changing Member 6's itinerary code.
+How the output was used:
+Added GET /shared-itineraries and GET /shared-itineraries/:id in the sharing module. Excluded private, admin-hidden and inactive-author itineraries, and returned no user ids, emails or booking ids. Tested every filter and the privacy rules in Swagger before pushing.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
