@@ -7,6 +7,12 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Itinerary, ItineraryDocument } from '../schemas/itinerary.schema';
+import {
+  BudgetableDay,
+  Subtotal,
+  calculateDaySubtotal,
+  calculateDaysSubtotal,
+} from './budget-calculator';
 import { CreateBudgetEntryDto, UpdateBudgetEntryDto } from './dto/budget-entry.dto';
 import {
   CreateTransportCostDto,
@@ -32,6 +38,20 @@ export class ItineraryBudgetService {
     @InjectModel(Itinerary.name)
     private readonly itineraryModel: Model<ItineraryDocument>,
   ) {}
+
+  // ---------------- subtotals (ITN-09, ITN-14) ----------------
+  // Plain calculations, no database access: the caller already has the itinerary loaded.
+  // Exported so Member 6's ItinerariesService can show the group subtotal of consecutive days.
+
+  /** Subtotal of one day: budget entries + activity costs + transport costs, per currency. */
+  calculateDaySubtotal(day: BudgetableDay): Subtotal {
+    return calculateDaySubtotal(day);
+  }
+
+  /** Subtotal of several days together (a group of consecutive days in one city, or all days). */
+  calculateDaysSubtotal(days: ReadonlyArray<BudgetableDay>): Subtotal {
+    return calculateDaysSubtotal(days);
+  }
 
   // ---------------- budget entries (ITN-14) ----------------
   addBudgetEntry(userId: string, itineraryId: string, dayId: string, dto: CreateBudgetEntryDto) {
@@ -147,13 +167,13 @@ export class ItineraryBudgetService {
         {
           _id: itId,
           userId: new Types.ObjectId(userId),
-          days: { $elemMatch: { _id: dId, [`${field}._id`]: iId } },
+          days: { $elemMatch: { _id: dId, [field]: this.itemMatch(field, iId) } },
         },
         { $set: set },
         { arrayFilters: [{ 'd._id': dId }, { 'e._id': iId }], returnDocument: 'after' },
       )
       .exec();
-    if (!updated) throw new NotFoundException(this.notFoundMessage(field));
+    if (!updated) return this.throwNotFoundOrLinked(field, userId, itId, dId, iId);
 
     const item = updated.days.find((d) => d._id.equals(dId))?.[field].find((x) => x._id.equals(iId));
     return this.view(item as unknown as Record<string, unknown>);
@@ -172,13 +192,13 @@ export class ItineraryBudgetService {
         {
           _id: itId,
           userId: new Types.ObjectId(userId),
-          days: { $elemMatch: { _id: dId, [`${field}._id`]: iId } },
+          days: { $elemMatch: { _id: dId, [field]: this.itemMatch(field, iId) } },
         },
         { $pull: { [`days.$[d].${field}`]: { _id: iId } } },
         { arrayFilters: [{ 'd._id': dId }], returnDocument: 'after' },
       )
       .exec();
-    if (!updated) throw new NotFoundException(this.notFoundMessage(field));
+    if (!updated) return this.throwNotFoundOrLinked(field, userId, itId, dId, iId);
     return { deleted: true, id: itemId };
   }
 
@@ -203,6 +223,36 @@ export class ItineraryBudgetService {
       'days._id': dId,
     });
     if (!exists) throw new NotFoundException('Itinerary or day not found');
+  }
+
+  /** Match one entry; a budget entry that comes from a linked booking (ITN-27) is excluded. */
+  private itemMatch(field: Field, itemId: Types.ObjectId) {
+    return field === 'budgetEntries'
+      ? { $elemMatch: { _id: itemId, bookingId: { $exists: false } } }
+      : { $elemMatch: { _id: itemId } };
+  }
+
+  /** The update matched nothing: say whether the entry is missing or belongs to a booking. */
+  private async throwNotFoundOrLinked(
+    field: Field,
+    userId: string,
+    itId: Types.ObjectId,
+    dId: Types.ObjectId,
+    iId: Types.ObjectId,
+  ): Promise<never> {
+    if (field === 'budgetEntries') {
+      const linked = await this.itineraryModel.exists({
+        _id: itId,
+        userId: new Types.ObjectId(userId),
+        days: { $elemMatch: { _id: dId, budgetEntries: { $elemMatch: { _id: iId, bookingId: { $exists: true } } } } },
+      });
+      if (linked) {
+        throw new ConflictException(
+          'This budget entry comes from a linked booking. Unlink the booking from the day instead.',
+        );
+      }
+    }
+    throw new NotFoundException(this.notFoundMessage(field));
   }
 
   private notFoundMessage(field: Field) {

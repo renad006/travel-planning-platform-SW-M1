@@ -539,6 +539,17 @@ How the output was used:
 Added a separate module in itineraries/budget with atomic updates on Member 6's Itinerary model. Checked every add, edit, delete and validation case in Swagger and Compass before pushing.
 ================================================
 
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-09, ITN-14
+Prompt:
+Member 6 asked for the budget subtotal calculation (ITN-09) and for ItineraryBudgetService to be exported from its module.
+How the output was used:
+Added pure subtotal calculations per currency with unit tests, exported the service, and protected booking-linked budget entries (ITN-27) from edit and delete. Checked that the existing endpoints still work in Swagger.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
