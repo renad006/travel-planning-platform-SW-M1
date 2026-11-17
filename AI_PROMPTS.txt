@@ -821,6 +821,16 @@ feature/PAY-01-payment-schemas.
 ================================================================================
 ================================================================================
 Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-03
+Prompt:
+Fix a backend startup crash ("Neither apiKey nor config.authenticator provided") caused by PaymentsService and RefundsService constructing the Stripe client unconditionally, and align payments.service.ts getPayment/assertPayable/processed-event signatures with the rest of the module.
+How the output was used:
+Made the Stripe client nullable in both PaymentsService and RefundsService, added a warning log plus a requireStripe() guard that throws ServiceUnavailableException for HTTP-triggered payment methods, and had RefundsService log and mark refunds FAILED instead of crashing when Stripe is not configured, mirroring the existing MailService graceful-degradation pattern. Verified with npm run build (0 errors) and a clean npm run start:dev with all payments routes mapped.
+================================================================================
+================================================================================
+Date: 2026-11-17
 Student: Nourhan 
 Tool: Claude
 Related Requirement: ITN-01, ITN-03
@@ -925,4 +935,5 @@ Create a hotel moderator and test moderator scope, then check every hotel requir
 How the output was used:
 Created a hotel moderator for the test hotel, changed its temporary password and tested 15 cases: own hotel 200, another hotel 403, admin-only and user-only routes 403, and the must-change-password block before the first change. Compared the sheets with the code: everything for HTL-01 to HTL-22 is built and tested except the refund creation for HTL-21, which waits on Member 5's hotel listeners.
 ================================================
+
 

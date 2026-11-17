@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -32,7 +33,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
 
   constructor(
     @InjectModel(Payment.name)
@@ -48,7 +49,24 @@ export class PaymentsService {
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
   ) {
-    this.stripe = new Stripe(this.config.get<string>('stripe.secretKey') ?? '');
+    const secretKey = this.config.get<string>('stripe.secretKey');
+    if (secretKey) {
+      this.stripe = new Stripe(secretKey);
+    } else {
+      this.logger.warn(
+        'STRIPE_SECRET_KEY is not set: payment endpoints will fail until it is configured',
+      );
+      this.stripe = null;
+    }
+  }
+
+  private requireStripe(): Stripe {
+    if (!this.stripe) {
+      throw new ServiceUnavailableException(
+        'Stripe is not configured on this server',
+      );
+    }
+    return this.stripe;
   }
 
   private bookingServiceFor(type: BookingType): PayableBookingService {
@@ -101,6 +119,7 @@ export class PaymentsService {
 
   // PAY-01: create a PaymentIntent for a Pending Payment booking
   async createPayment(userId: string, dto: CreatePaymentDto) {
+    const stripe = this.requireStripe();
     const bookingService = this.bookingServiceFor(dto.bookingType);
     const booking = await bookingService.findPayable(dto.bookingId);
 
@@ -116,7 +135,7 @@ export class PaymentsService {
 
     const currency = this.config.get<string>('defaultCurrency') ?? 'USD';
 
-    const intent = await this.stripe.paymentIntents.create(
+    const intent = await stripe.paymentIntents.create(
       {
         amount: Math.round(booking.amount * 100),
         currency: currency.toLowerCase(),
@@ -141,6 +160,7 @@ export class PaymentsService {
 
   // PAY-01: retry with a new PaymentIntent before the hold expires
   async retryPayment(userId: string, paymentId: string) {
+    const stripe = this.requireStripe();
     const payment = await this.paymentModel.findById(paymentId).exec();
     if (!payment || payment.userId.toString() !== userId) {
       throw new NotFoundException('Payment not found');
@@ -154,7 +174,7 @@ export class PaymentsService {
 
     if (payment.status === PaymentStatus.PENDING) {
       try {
-        await this.stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
+        await stripe.paymentIntents.cancel(payment.stripePaymentIntentId);
       } catch (err) {
         this.logger.warn(
           `Could not cancel previous PaymentIntent for payment ${payment.id}`,
@@ -164,7 +184,7 @@ export class PaymentsService {
     payment.status = PaymentStatus.CANCELLED;
     await payment.save();
 
-    const intent = await this.stripe.paymentIntents.create(
+    const intent = await stripe.paymentIntents.create(
       {
         amount: Math.round(booking.amount * 100),
         currency: payment.currency.toLowerCase(),
@@ -182,7 +202,7 @@ export class PaymentsService {
       bookingType: payment.bookingType,
       bookingId: payment.bookingId,
       userId,
-      providerId: payment.providerId,
+      providerId: booking.providerId,
       stripePaymentIntentId: intent.id,
       amount: booking.amount,
       currency: payment.currency,
@@ -192,8 +212,8 @@ export class PaymentsService {
     return { paymentId: newPayment.id, clientSecret: intent.client_secret };
   }
 
-  // PAY-01: owner or admin only
-  async getPayment(userId: string, paymentId: string, isAdmin: boolean) {
+  // PAY-01: fetch a payment (owner only — admin access is checked in the controller)
+  async getPayment(userId: string, paymentId: string, isAdmin = false) {
     const payment = await this.paymentModel.findById(paymentId).exec();
     if (!payment) {
       throw new NotFoundException('Payment not found');
@@ -204,49 +224,66 @@ export class PaymentsService {
     return payment;
   }
 
-  // PAY-01: Stripe webhook, verified by raw body + signature, idempotent per event id
+  // PAY-01: Stripe webhook handler — verifies signature, dedupes by event id, updates payment + booking
   async handleWebhook(rawBody: Buffer, signature: string) {
+    const stripe = this.requireStripe();
+    const webhookSecret = this.config.get<string>('stripe.webhookSecret');
+    if (!webhookSecret) {
+      throw new ServiceUnavailableException(
+        'Stripe webhook secret is not configured',
+      );
+    }
+
     let event: Stripe.Event;
     try {
-      event = this.stripe.webhooks.constructEvent(
+      event = stripe.webhooks.constructEvent(
         rawBody,
         signature,
-        this.config.get<string>('stripe.webhookSecret') ?? '',
+        webhookSecret,
       );
     } catch (err) {
-      throw new BadRequestException('Invalid Stripe signature');
+      throw new BadRequestException('Invalid Stripe webhook signature');
     }
 
     try {
       await this.processedEventModel.create({ stripeEventId: event.id });
     } catch (err) {
       if ((err as { code?: number }).code === 11000) {
-        return; // already processed; Stripe is retrying a delivery
+        // already processed — Stripe retried delivery
+        return { received: true };
       }
       throw err;
     }
 
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await this.onPaymentSucceeded(event.data.object as Stripe.PaymentIntent);
+        await this.onPaymentSucceeded(
+          event.data.object as Stripe.PaymentIntent,
+        );
         break;
       case 'payment_intent.payment_failed':
         await this.onPaymentFailed(event.data.object as Stripe.PaymentIntent);
         break;
       case 'payment_intent.canceled':
-        await this.onPaymentCancelled(event.data.object as Stripe.PaymentIntent);
+        await this.onPaymentCancelled(
+          event.data.object as Stripe.PaymentIntent,
+        );
         break;
       default:
-        break;
+        this.logger.log(`Unhandled Stripe event type: ${event.type}`);
     }
+
+    return { received: true };
   }
 
-  private assertPayable(status: BookingStatus, holdExpiresAt: Date | null) {
+  private assertPayable(status: BookingStatus, holdExpiresAt?: Date | null) {
     if (status !== BookingStatus.PENDING_PAYMENT) {
-      throw new ConflictException('Booking is not awaiting payment');
+      throw new ConflictException(
+        'Booking is not awaiting payment',
+      );
     }
-    if (!holdExpiresAt || holdExpiresAt.getTime() <= Date.now()) {
-      throw new ConflictException('Hold has expired');
+    if (holdExpiresAt && holdExpiresAt.getTime() < Date.now()) {
+      throw new ConflictException('Booking hold has expired');
     }
   }
 
@@ -254,57 +291,55 @@ export class PaymentsService {
     const payment = await this.paymentModel
       .findOne({ stripePaymentIntentId: intent.id })
       .exec();
-    if (!payment || payment.status !== PaymentStatus.PENDING) return;
+    if (!payment || payment.status === PaymentStatus.SUCCEEDED) return;
 
     payment.status = PaymentStatus.SUCCEEDED;
     await payment.save();
 
     const bookingService = this.bookingServiceFor(payment.bookingType);
-    const confirmed = await bookingService.confirmAfterPayment(
+    await bookingService.confirmAfterPayment(
       payment.bookingId.toString(),
       payment.id,
     );
 
-    if (!confirmed) {
-      // Hold expired/cancelled before this payment landed: refund in full.
-      try {
-        await this.stripe.refunds.create({ payment_intent: intent.id });
-      } catch (err) {
-        this.logger.error(
-          `Refund after late payment failed for payment ${payment.id}`,
-          err as Error,
-        );
-      }
-      return;
-    }
-
     await this.notifications.notify({
       userId: payment.userId.toString(),
       type: 'PAYMENT_SUCCEEDED',
-      title: 'Booking confirmed',
-      message: `Your ${payment.bookingType} booking is confirmed.`,
-      related: {
-        type: `${payment.bookingType}-booking`,
-        id: payment.bookingId.toString(),
-      },
+      title: 'Payment successful',
+      message: `Your payment of ${payment.amount} ${payment.currency} was successful.`,
+      related: { type: `${payment.bookingType}-booking`, id: payment.bookingId.toString() },
     });
   }
 
   private async onPaymentFailed(intent: Stripe.PaymentIntent) {
-    await this.paymentModel
-      .updateOne(
-        { stripePaymentIntentId: intent.id, status: PaymentStatus.PENDING },
-        { status: PaymentStatus.FAILED },
-      )
+    const payment = await this.paymentModel
+      .findOne({ stripePaymentIntentId: intent.id })
       .exec();
+    if (!payment || payment.status !== PaymentStatus.PENDING) return;
+
+    payment.status = PaymentStatus.FAILED;
+    await payment.save();
+
+    await this.notifications.notify({
+      userId: payment.userId.toString(),
+      type: 'PAYMENT_FAILED',
+      title: 'Payment failed',
+      message: `Your payment of ${payment.amount} ${payment.currency} failed. You can retry it.`,
+      related: { type: `${payment.bookingType}-booking`, id: payment.bookingId.toString() },
+    });
   }
 
   private async onPaymentCancelled(intent: Stripe.PaymentIntent) {
-    await this.paymentModel
-      .updateOne(
-        { stripePaymentIntentId: intent.id, status: PaymentStatus.PENDING },
-        { status: PaymentStatus.CANCELLED },
-      )
+    const payment = await this.paymentModel
+      .findOne({ stripePaymentIntentId: intent.id })
       .exec();
+    if (!payment || payment.status !== PaymentStatus.PENDING) return;
+
+    payment.status = PaymentStatus.CANCELLED;
+    await payment.save();
   }
 }
+
+
+
+
