@@ -9,6 +9,9 @@ import { PaginationQueryDto } from './../common/dto/pagination-query.dto';
 import { GetPostsDto } from './dto/get-posts.dto'; // <--- ADDED (for public route)
 import { Public } from '../common/decorators/public.decorator'; // <--- ADDED (for public route)
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('Blog - Posts')
 @Controller('posts')
@@ -92,5 +95,34 @@ export class BlogController {
     return this.blogService.unlikePost(id, user._id.toString());
   }
 
+    @Post(':id/images')
+  @ApiCookieAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({ summary: 'Upload an image for a post (BLG-10)' })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImage(
+    @Param('id') id: string,
+    @CurrentUser() user: UserDocument,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.blogService.addImageToPost(id, user._id.toString(), file);
+  }
+
+  @Delete(':id/images/:imageId')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Delete an image from a post (BLG-10)' })
+  async deleteImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.blogService.deleteImageFromPost(id, imageId, user._id.toString());
+  }
   
 }
