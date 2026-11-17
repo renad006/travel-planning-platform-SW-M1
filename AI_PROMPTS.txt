@@ -836,7 +836,7 @@ unauthenticated 401, delete 200, post-delete 404).
 ================================================================================
 
 Date: 2026-11-17
-Student: Member 6
+Student: Nourhan 
 Tool: Claude
 Related Requirement: ITN-05, ITN-07, ITN-08, ITN-09
 Prompt:
@@ -849,7 +849,7 @@ increment correctly from the start date.
 ================================================================================
 ================================================================================
 Date: 2026-11-17
-Student: Member 6
+Student: Nourhan 
 Tool: Claude
 Related Requirement: ITN-10, ITN-12
 Prompt:
@@ -863,7 +863,7 @@ remove image 200, delete activity 200.
 ================================================================================
 ================================================================================
 Date: 2026-11-17
-Student: Member 6
+Student: Nourhan
 Tool: Claude
 Related Requirement: ITN-25, ITN-26
 Prompt:
