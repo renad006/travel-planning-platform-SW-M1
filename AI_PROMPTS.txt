@@ -1025,7 +1025,7 @@ Created a Like schema with a unique compound index. Used a try/catch block to ca
 ================================================================================
 ================================================================================
 Date: 2026-11-17
-Student: <noor>
+Student: <Noor>
 Tool: deepseek
 Related Requirement: BLG-06
 Prompt:
@@ -1044,4 +1044,13 @@ Help me create a public author page endpoint that returns the author's name, joi
 How the output was used:
 Injected the User model into the BlogModule. Created AuthorsController and a service method that fetches the user, their published/non-hidden posts, and returns an empty array for itineraries as a TODO for Member 6.
 ================================================================================
-
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: GEN-08, BLG-10
+Prompt:
+Help me create a shared UploadsService for image uploads (JPG/PNG, max 5MB) and add endpoints to upload/delete images for a blog post (max 5 images).
+How the output was used:
+Created UploadsModule and UploadsService using multer. Checked magic bytes for file validation. Added routes to BlogController and updated the service to save/delete files and update the post's images array.
+================================================================================

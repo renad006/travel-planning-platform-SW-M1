@@ -57,3 +57,4 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Comments** (`/api/posts/:id/comments`, `/api/comments`): Add a comment to a published post (BLG-05), edit/delete own comments (BLG-07).
 - **Likes** (`/api/posts/:id/like`): Like/unlike a post, preventing double likes at the DB level (BLG-06).
 - **Authors** (`/api/authors/:id`): Public author page with name, join date, published posts, and public itineraries (BLG-12).
+- **Images** (`/api/posts/:id/images`): Upload/delete images for a post (GEN-08, BLG-10). Max 5 JPG/PNG images, 5MB each. Shared `UploadsService` is available for other modules.

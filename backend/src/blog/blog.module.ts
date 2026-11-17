@@ -9,6 +9,7 @@ import { CommentsController } from './comments.controller';
 import { TagsController } from './tags.controller';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { AuthorsController } from './authors.controller';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { AuthorsController } from './authors.controller';
       { name: Comment.name, schema: CommentSchema },
       { name: Like.name, schema: LikeSchema },
       { name: User.name, schema: UserSchema },
-    ]),
+    
+    ]), UploadsModule,
   ],
     controllers: [BlogController, CommentsController, TagsController,AuthorsController ],
   providers: [BlogService],

@@ -10,7 +10,7 @@ import { Comment, CommentDocument } from './schemas/comment.schema';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { Like, LikeDocument } from './schemas/like.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
-
+import { UploadsService } from '../uploads/uploads.service';
 @Injectable()
 
 export class BlogService {
@@ -19,6 +19,7 @@ export class BlogService {
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>, // <--- ADD THIS
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
         @InjectModel(User.name) private userModel: Model<UserDocument>, // <--- ADD THIS
+            private readonly uploadsService: UploadsService, // <--- ADD THIS
   ) {}
 
     async findAllPublished(dto: GetPostsDto) {
@@ -285,5 +286,46 @@ export class BlogService {
       },
       itineraries: [], // TODO BLG-12: Fetch public itineraries from Member 6's model when ready
     };
+  }
+
+    async addImageToPost(postId: string, authorId: string, file: Express.Multer.File) {
+    const post = await this.postModel.findById(postId);
+    if (!post) throw new NotFoundException('Post not found');
+    if (post.authorId.toString() !== authorId) {
+      throw new ForbiddenException('You can only add images to your own posts');
+    }
+
+    // GEN-08: Max 5 images per post
+    if (post.images.length >= 5) {
+      throw new BadRequestException('Maximum 5 images allowed per post');
+    }
+
+    const savedImage = await this.uploadsService.saveFile(file, 'posts');
+    post.images.push(savedImage);
+    await post.save();
+
+    return post.images;
+  }
+
+  async deleteImageFromPost(postId: string, imageId: string, authorId: string) {
+    const post = await this.postModel.findById(postId);
+    if (!post) throw new NotFoundException('Post not found');
+    if (post.authorId.toString() !== authorId) {
+      throw new ForbiddenException('You can only delete images from your own posts');
+    }
+
+    const imageIndex = post.images.findIndex((img) => img.id === imageId);
+    if (imageIndex === -1) throw new NotFoundException('Image not found');
+
+    const image = post.images[imageIndex];
+    
+    // Remove from array
+    post.images.splice(imageIndex, 1);
+    await post.save();
+
+    // Delete file from disk
+    await this.uploadsService.deleteFile('posts', image.filename);
+
+    return { message: 'Image deleted' };
   }
 }
