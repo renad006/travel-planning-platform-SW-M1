@@ -1025,7 +1025,7 @@ Created a Like schema with a unique compound index. Used a try/catch block to ca
 ================================================================================
 ================================================================================
 Date: 2026-11-17
-Student: <Noor>
+Student: <noor>
 Tool: deepseek
 Related Requirement: BLG-06
 Prompt:
@@ -1033,24 +1033,23 @@ Help me implement like and unlike functionality for blog posts. How do I prevent
 How the output was used:
 Created endpoints in the controller and service. Used a unique compound index in MongoDB and caught the duplicate key error (code 11000) to throw a 409 Conflict.
 ================================================================================
-
 ================================================================================
-Date: 2026-11-17
+Date: 2026-11-18
 Student: <Noor>
 Tool: deepseek
-Related Requirement: BLG-12
+Related Requirement: GEN-09, GEN-10, GEN-07
 Prompt:
-Help me create a public author page endpoint that returns the author's name, join date, published posts, and public itineraries.
+Help me build the reporting and admin moderation system. Users need to report content (once), and admins need to view open reports and resolve them by dismissing, hiding, or deleting the content. Admin actions must be logged and the author notified.
 How the output was used:
-Injected the User model into the BlogModule. Created AuthorsController and a service method that fetches the user, their published/non-hidden posts, and returns an empty array for itineraries as a TODO for Member 6.
+Created Report schema with a unique compound index. Built AdminReportsController. Added resolve logic to hide/delete posts and comments, update report status, call AuditService.log, and trigger NotificationsService.notify for the author.
 ================================================================================
 ================================================================================
-Date: 2026-11-17
-Student: <Noor>
+Date: 2026-11-18
+Student: Noor
 Tool: deepseek
-Related Requirement: GEN-08, BLG-10
+Related Requirement: GEN-10, GEN-07
 Prompt:
-Help me create a shared UploadsService for image uploads (JPG/PNG, max 5MB) and add endpoints to upload/delete images for a blog post (max 5 images).
+Help me add direct admin hide and delete endpoints for posts and comments. I need to ensure the author is notified and the action is logged in the audit trail.
 How the output was used:
-Created UploadsModule and UploadsService using multer. Checked magic bytes for file validation. Added routes to BlogController and updated the service to save/delete files and update the post's images array.
+Added directModerateContent to ReportsService, added direct hide/delete routes to AdminReportsController, and integrated AuditService and NotificationsService using the correct object signature.
 ================================================================================
