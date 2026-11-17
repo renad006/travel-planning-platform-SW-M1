@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { City, CitySchema } from '../reference-data/schemas/city.schema';
 import { Hotel, HotelSchema } from './schemas/hotel.schema';
 import { HotelsController } from './hotels.controller';
 import { HotelsService } from './hotels.service';
@@ -15,6 +16,7 @@ import { HotelBooking, HotelBookingSchema, } from '../hotel-bookings/schemas/hot
         { name: RoomAvailability.name, schema: RoomAvailabilitySchema },
         { name: RoomBlock.name, schema: RoomBlockSchema },
         { name: HotelBooking.name, schema: HotelBookingSchema },
+        { name: City.name, schema: CitySchema },
     ])],
     controllers: [HotelsController],
     providers: [HotelsService],

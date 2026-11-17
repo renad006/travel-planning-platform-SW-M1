@@ -31,7 +31,7 @@ export class CreateHotelDto {
     @MaxLength(200)
     address: string;
 
-    @ApiProperty({ example: 'CAI', description: 'City identifier' })
+    @ApiProperty({ example: 'cairo', description: 'City id from the seeded city list' })
     @Transform(trim)
     @IsString()
     @IsNotEmpty()
