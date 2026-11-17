@@ -550,6 +550,17 @@ How the output was used:
 Added pure subtotal calculations per currency with unit tests, exported the service, and protected booking-linked budget entries (ITN-27) from edit and delete. Checked that the existing endpoints still work in Swagger.
 ================================================
 
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-20
+Prompt:
+Implement setting an itinerary Public or Private without changing Member 6's itinerary code, and without touching the admin isHidden flag.
+How the output was used:
+Added PATCH /itineraries/:id/visibility in a separate sharing module with an atomic owner-only update. Checked every case in Swagger and Compass before pushing.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
