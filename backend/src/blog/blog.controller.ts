@@ -72,9 +72,25 @@ export class BlogController {
     return this.blogService.addComment(id, user._id.toString(), dto);
   }
 
+    @Post(':id/like')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Like a post (BLG-06)' })
+  async likePost(
+    @Param('id') id: string,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.blogService.likePost(id, user._id.toString());
+  }
 
-
- 
+  @Delete(':id/like')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Unlike a post (BLG-06)' })
+  async unlikePost(
+    @Param('id') id: string,
+    @CurrentUser() user: UserDocument,
+  ) {
+    return this.blogService.unlikePost(id, user._id.toString());
+  }
 
   
 }

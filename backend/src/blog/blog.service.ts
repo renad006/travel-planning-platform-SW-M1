@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument, PostStatus } from './schemas/post.schema';
@@ -8,6 +8,7 @@ import { GetPostsDto } from './dto/get-posts.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Comment, CommentDocument } from './schemas/comment.schema';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { Like, LikeDocument } from './schemas/like.schema';
 
 @Injectable()
 
@@ -15,7 +16,7 @@ export class BlogService {
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>, // <--- ADD THIS
- 
+    @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
   ) {}
 
     async findAllPublished(dto: GetPostsDto) {
@@ -198,5 +199,50 @@ export class BlogService {
     );
 
     return { message: 'Comment deleted' };
+  }
+
+    async likePost(postId: string, userId: string) {
+    const post = await this.postModel.findById(postId);
+    if (!post || post.status !== PostStatus.PUBLISHED) {
+      throw new NotFoundException('Post not found or not published');
+    }
+
+    try {
+      // The unique index in the schema prevents duplicates
+      await this.likeModel.create({
+        postId: new Types.ObjectId(postId),
+        userId: new Types.ObjectId(userId),
+      });
+
+      await this.postModel.updateOne(
+        { _id: postId },
+        { $inc: { likeCount: 1, interactionScore: 1 } },
+      );
+
+      return { message: 'Post liked' };
+    } catch (error) {
+           if ((error as any).code === 11000) { // MongoDB Duplicate Key Error 
+        throw new ConflictException('You have already liked this post');
+      }
+      throw error;
+    }
+  }
+
+  async unlikePost(postId: string, userId: string) {
+    const result = await this.likeModel.deleteOne({
+      postId: new Types.ObjectId(postId),
+      userId: new Types.ObjectId(userId),
+    });
+
+    if (result.deletedCount === 0) {
+      throw new BadRequestException('You have not liked this post');
+    }
+
+    await this.postModel.updateOne(
+      { _id: postId },
+      { $inc: { likeCount: -1, interactionScore: -1 } },
+    );
+
+    return { message: 'Post unliked' };
   }
 }
