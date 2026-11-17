@@ -58,3 +58,5 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Likes** (`/api/posts/:id/like`): Like/unlike a post, preventing double likes at the DB level (BLG-06).
 - **Authors** (`/api/authors/:id`): Public author page with name, join date, published posts, and public itineraries (BLG-12).
 - **Images** (`/api/posts/:id/images`): Upload/delete images for a post (GEN-08, BLG-10). Max 5 JPG/PNG images, 5MB each. Shared `UploadsService` is available for other modules.
+
+- **Reports & Moderation** (`/api/reports`, `/api/admin/reports`): Users can report content once (GEN-09). Admins can view open reports and resolve them by dismissing, hiding, or deleting the content (GEN-10). Admin actions are audited (GEN-07) and authors are notified.
