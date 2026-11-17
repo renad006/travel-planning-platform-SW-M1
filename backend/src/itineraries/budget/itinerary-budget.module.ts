@@ -12,5 +12,7 @@ import { ItineraryBudgetService } from './itinerary-budget.service';
   imports: [MongooseModule.forFeature([{ name: Itinerary.name, schema: ItinerarySchema }])],
   controllers: [ItineraryBudgetController],
   providers: [ItineraryBudgetService],
+  // ITN-09: Member 6's ItinerariesService uses the subtotal calculations
+  exports: [ItineraryBudgetService],
 })
 export class ItineraryBudgetModule {}
