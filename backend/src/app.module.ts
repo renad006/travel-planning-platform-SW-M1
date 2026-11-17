@@ -20,6 +20,7 @@ import { ProviderScopeGuard } from './common/guards/provider-scope.guard';
 import { FlightsModule } from './flights/flights.module';
 import { FlightBookingsModule } from './flight-bookings/flight-bookings.module';
 import { AdminModule } from './admin/admin.module';
+import { MailModule } from './mail/mail.module';
 import { ItinerariesModule } from './itineraries/itineraries.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { ItinerariesModule } from './itineraries/itineraries.module';
     AuthModule,
     AuditModule,
     NotificationsModule,
+    MailModule,
     ReferenceDataModule,
     FlightsModule,
     FlightBookingsModule,

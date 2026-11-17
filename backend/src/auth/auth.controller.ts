@@ -23,6 +23,8 @@ import { AuthService, REFRESH_TOKEN_COOKIE } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const refreshCookieOf = (req: Request): string | undefined =>
   (req.cookies?.[REFRESH_TOKEN_COOKIE] as string | undefined) ?? undefined;
@@ -96,6 +98,37 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
     await this.authService.logout(refreshCookieOf(req), res);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request a password reset link by email (ACC-07, optional)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Same response whether or not the email exists (ACC-07)',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Set a new password with the emailed token: 30 minutes, single-use (ACC-07, optional)',
+  })
+  @ApiResponse({ status: 200, description: 'Password reset (ACC-07)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed, or the token is invalid, used or expired',
+  })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Patch('change-password')

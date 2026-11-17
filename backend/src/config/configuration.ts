@@ -21,4 +21,15 @@ export default () => ({
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   },
   defaultCurrency: process.env.DEFAULT_CURRENCY ?? 'USD',
+
+  // GEN-01-B: SMTP settings (use an Ethereal test inbox in development)
+  mail: {
+    host: process.env.MAIL_HOST,
+    port: parseInt(process.env.MAIL_PORT ?? '587', 10),
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+    from:
+      process.env.MAIL_FROM ??
+      'Travel Platform <no-reply@travel-platform.local>',
+  },
 });

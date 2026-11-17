@@ -13,6 +13,7 @@ Software Project I, Winter 2026. Flight and hotel booking, itinerary planning an
    - `PORT`, `FRONTEND_URL`, `NODE_ENV`
    - `ADMIN_EMAIL`, `ADMIN_PASSWORD`: used by the seed script to create the admin account
    - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DEFAULT_CURRENCY` (payments)
+   - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM` (optional, email for password reset and notification copies, ACC-07 and GEN-01-B; a free Ethereal test inbox works, and if `MAIL_HOST` is empty, emails are skipped with a warning)
    - `FXRATES_API_KEY` (exchange rates)
 2. `cd backend` then `npm install`
 3. Seed the database: `npm run seed`. It creates the admin account from `ADMIN_EMAIL` / `ADMIN_PASSWORD` and loads countries, cities, airports and attractions. It is safe to run more than once (upserts).
@@ -41,3 +42,5 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Notifications** (`/api/notifications`): list, mark one read, mark all read; users only see their own (GEN-01).
 - **Errors:** every error returns `{ statusCode, message, error, timestamp, path }`.
 - **Sessions:** the user is loaded from the database on every request, so suspended or deactivated accounts are blocked immediately.
+- **Bonus, forgot password by email** (ACC-07): `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`. The emailed token is single use, expires after 30 minutes, and only its hash is stored.
+- **Bonus, email notifications** (GEN-01-B): every in-app notification also sends an email copy. Email problems never break the action that triggered the notification.

@@ -215,6 +215,23 @@ Complete the README setup steps (environment variables, seed command, start and 
 How the output was used:
 Checked the real seed script name and the variable names in .env.example before writing, then replaced the README with the final version and opened a docs PR.
 ================================================
+================================================================================
+Date: 2026-11-17
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-07, GEN-01-B
+Prompt:
+Help me add email support to the NestJS backend: an SMTP mail service
+(tested with an Ethereal inbox), forgot-password and reset-password by
+email with a single-use expiring token stored only as a hash, and an
+email copy of every in-app notification.
+How the output was used:
+Used the design for MailService, the reset-token flow (hashed token,
+30-minute expiry, atomic single use, generic response for unknown
+emails) and the best-effort email copy inside NotificationsService.
+I reviewed the code, ran the build and tests, and verified the flows
+manually in Swagger.
+================================================================================
 ================================================
 Date: 2026-11-11
 Student: Arwa
