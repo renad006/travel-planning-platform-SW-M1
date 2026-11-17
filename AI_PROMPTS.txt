@@ -808,3 +808,17 @@ Added Create/Update/Reorder DTOs, service methods, and controller endpoints. Tes
 add 201, max 60 error 400, edit 200, reorder 200, delete 200, invalid reorder 400. Verified dates 
 increment correctly from the start date.
 ================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Member 6
+Tool: Claude
+Related Requirement: ITN-10, ITN-12
+Prompt:
+Implement Activity CRUD (name, description, time, cost) and Activity Image upload/removal. 
+Reused Member 2's Multer diskStorage pattern for the file interceptor (GEN-08 shared rule), 
+saving to uploads/activities.
+How the output was used:
+Added Create/Update DTOs, Service methods, and Controller endpoints including the FileInterceptor. 
+Tested in Swagger: add activity 201, edit 200, upload image 201 (verified accessible via static URL), 
+remove image 200, delete activity 200.
+================================================================================
