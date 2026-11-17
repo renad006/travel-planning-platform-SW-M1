@@ -500,6 +500,17 @@ notify, expire pending holds, emit the cancelled event for Payments) and flight.
 (update booking times, notify passengers).
 ================================================
 
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: PAY-04
+Prompt:
+Replace the hardcoded platform currency in the flight bookings with the shared defaultCurrency config, as requested by Member 5.
+How the output was used:
+Reviewed the two-file change and checked that the booking summary still shows USD.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
