@@ -832,6 +832,16 @@ feature/PAY-01-payment-schemas.
 ================================================================================
 ================================================================================
 Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-03
+Prompt:
+Fix a backend startup crash ("Neither apiKey nor config.authenticator provided") caused by PaymentsService and RefundsService constructing the Stripe client unconditionally, and align payments.service.ts getPayment/assertPayable/processed-event signatures with the rest of the module.
+How the output was used:
+Made the Stripe client nullable in both PaymentsService and RefundsService, added a warning log plus a requireStripe() guard that throws ServiceUnavailableException for HTTP-triggered payment methods, and had RefundsService log and mark refunds FAILED instead of crashing when Stripe is not configured, mirroring the existing MailService graceful-degradation pattern. Verified with npm run build (0 errors) and a clean npm run start:dev with all payments routes mapped.
+================================================================================
+================================================================================
+Date: 2026-11-17
 Student: Nourhan 
 Tool: Claude
 Related Requirement: ITN-01, ITN-03
@@ -948,4 +958,5 @@ Link a booked hotel to an itinerary day so it feeds the budget. Nourhan agreed I
 How the output was used:
 Added POST and DELETE routes under itineraries/:id/days/:dayId/bookings. A link needs a Confirmed or Completed reservation of the user whose stay covers that day, and can only be made once per itinerary. It adds an accommodation budget entry marked with the booking id and two optional fields on the budget entry schema. Tested with curl: link 201 with a 300 USD entry, linking twice 409, a day outside the stay 400, unknown or malformed ids 404 and 400, a Pending Payment booking 409, unlink 200 and 404 the second time. Only the hotel half is done, the flight half waits for Suha.
 ================================================
+
 
