@@ -66,7 +66,8 @@ export class Itinerary {
 
   @Prop({ required: true, enum: ['private', 'public'], default: 'private' })
   visibility: 'private' | 'public';
-
+  @Prop({ default: false })
+  isHidden: boolean;
   @Prop({ type: [ItineraryDaySchema], default: [] })
   days: ItineraryDay[];
 
