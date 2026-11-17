@@ -1,3 +1,4 @@
+import { PaymentsModule } from './payments/payments.module';
 import { MustChangePasswordGuard } from './common/guards/must-change-password.guard';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -41,6 +42,7 @@ import { ItinerariesModule } from './itineraries/itineraries.module';
     FlightBookingsModule,
     HotelsModule,
     HotelBookingsModule,
+    PaymentsModule,
     AdminModule,
     ItinerariesModule,
   ],
