@@ -8,11 +8,18 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, isValidObjectId, Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { BookingType } from '../payments/enums/payment.enums';
+import { calculateRefund } from '../payments/refund-calculator';
+import {
+  HOTEL_BOOKING_EVENTS,
+  type HotelBookingCancelledEvent,
+  type HotelBookingExpiredEvent,
+} from './hotel-bookings.events';
 import type {
   PayableBooking,
   PayableBookingService,
@@ -33,6 +40,7 @@ import { CreateHotelBookingDto } from './dto/create-hotel-booking.dto';
 import {
   HotelBooking,
   HotelBookingDocument,
+  HotelCancelledBy,
 } from './schemas/hotel-booking.schema';
 import {
   RoomNightLock,
@@ -63,6 +71,7 @@ export class HotelBookingsService
     private readonly blockModel: Model<RoomBlockDocument>,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly events: EventEmitter2,
   ) {}
 
   /** PAY-04: the one platform currency, read from the same config as Payments. */
@@ -136,9 +145,8 @@ export class HotelBookingsService
     }
   }
 
-  // PayableBookingService: Pending Payment -> Expired, and free the rooms.
-  // TODO (Member 5): after expiring, call PaymentsService.cancelIntentForBooking('hotel', id)
-  // once that method exists, so the open Stripe PaymentIntent is cancelled.
+  // PayableBookingService: Pending Payment -> Expired, and free the rooms. The expired
+  // event tells Payments (Member 5) to cancel the open Stripe PaymentIntent, same as flights.
   async expireHold(id: string): Promise<void> {
     const expired = await this.bookingModel.findOneAndUpdate(
       { _id: id, status: BookingStatus.PENDING_PAYMENT },
@@ -146,6 +154,12 @@ export class HotelBookingsService
     );
     if (expired) {
       await this.lockModel.deleteMany({ bookingId: expired._id });
+      const event: HotelBookingExpiredEvent = {
+        bookingId: expired.id as string,
+        userId: expired.userId.toString(),
+        paymentId: expired.paymentId?.toString(),
+      };
+      this.events.emit(HOTEL_BOOKING_EVENTS.EXPIRED, event);
     }
   }
 
@@ -246,6 +260,111 @@ export class HotelBookingsService
       related: { type: 'hotel_booking', id: booking.id as string },
     });
     return true;
+  }
+
+  // HTL-21: your own Confirmed reservation, still before check-in
+  private async findCancellable(userId: string, id: string) {
+    const booking = isValidObjectId(id)
+      ? await this.bookingModel.findOne({ _id: id, userId })
+      : null;
+    // someone else's reservation is reported as not found, never as forbidden
+    if (!booking) {
+      throw new NotFoundException('Reservation not found');
+    }
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      throw new ConflictException('Only a Confirmed reservation can be cancelled');
+    }
+    if (booking.checkIn.getTime() <= Date.now()) {
+      throw new ConflictException(
+        'The check-in date has passed, this reservation can no longer be cancelled',
+      );
+    }
+    return booking;
+  }
+
+  // PAY-03 formula (Member 5): the tier with the highest threshold not above the days left
+  private refundFor(booking: HotelBookingDocument) {
+    const result = calculateRefund({
+      tiers: booking.policiesSnapshot?.cancellationTiers ?? [],
+      bookingAmount: booking.totalPrice,
+      cancellationAnchor: booking.checkIn,
+    });
+    return {
+      percent: result.percent,
+      amount: result.amount,
+      daysRemaining: result.daysRemaining,
+      currency: booking.currency ?? this.platformCurrency,
+    };
+  }
+
+  // HTL-21: the refund the user would get if they cancel now, shown before confirming
+  async refundPreview(userId: string, id: string) {
+    return this.refundFor(await this.findCancellable(userId, id));
+  }
+
+  // HTL-21: cancel the whole reservation. The rooms are released in the same transaction
+  // and Payments (Member 5) is told through the cancelled event to create the refund.
+  async cancel(userId: string, id: string) {
+    const booking = await this.findCancellable(userId, id);
+    const refund = this.refundFor(booking);
+
+    const session = await this.connection.startSession();
+    try {
+      let claimed = null as HotelBookingDocument | null;
+      await session.withTransaction(async () => {
+        // only one concurrent cancel can win, so the nights are never released twice
+        claimed = await this.bookingModel.findOneAndUpdate(
+          {
+            _id: booking._id,
+            userId: booking.userId,
+            status: BookingStatus.CONFIRMED,
+            checkIn: { $gt: new Date() },
+          },
+          {
+            status: BookingStatus.CANCELLED,
+            cancelledAt: new Date(),
+            cancelledBy: HotelCancelledBy.USER,
+            refundPercentage: refund.percent,
+            refundAmount: refund.amount,
+          },
+          { returnDocument: 'after', session },
+        );
+        if (claimed) {
+          await this.lockModel.deleteMany({ bookingId: claimed._id }, { session });
+        }
+      });
+      if (!claimed) {
+        throw new ConflictException('This reservation can no longer be cancelled');
+      }
+      const cancelled = claimed;
+
+      await this.notifications.notify({
+        userId,
+        type: 'BOOKING_CANCELLED',
+        title: 'Hotel reservation cancelled',
+        message:
+          `Reservation ${cancelled.reference ?? ''} was cancelled. ` +
+          (refund.amount > 0
+            ? `A refund of ${refund.amount} ${refund.currency} applies under the cancellation policy.`
+            : 'No refund applies under the cancellation policy.'),
+        related: { type: 'hotel_booking', id: cancelled.id as string },
+      });
+      const event: HotelBookingCancelledEvent = {
+        bookingId: cancelled.id as string,
+        userId,
+        reference: cancelled.reference ?? '',
+        paymentId: cancelled.paymentId?.toString(),
+        cancelledBy: 'user',
+        amount: cancelled.totalPrice,
+        currency: refund.currency,
+        cancellationAnchor: cancelled.checkIn,
+        cancellationTiers: cancelled.policiesSnapshot?.cancellationTiers ?? [],
+      };
+      this.events.emit(HOTEL_BOOKING_EVENTS.CANCELLED, event);
+      return { booking: cancelled, refund };
+    } finally {
+      await session.endSession();
+    }
   }
 
   // HTL-20: the user's reservations grouped as Upcoming, Past and Cancelled.

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -27,6 +27,28 @@ export class HotelBookingsController {
   @ApiOperation({ summary: 'My reservations: Upcoming, Past and Cancelled (HTL-20)' })
   listMine(@CurrentUser() user: UserDocument) {
     return this.bookingsService.listMine(user.id);
+  }
+
+  @Get(':id/refund-preview')
+  @Roles(Role.USER)
+  @ApiOperation({
+    summary: 'See the refund I would get if I cancel this reservation now (HTL-21)',
+  })
+  refundPreview(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.bookingsService.refundPreview(user.id, id);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @Roles(Role.USER)
+  @ApiOperation({
+    summary: 'Cancel my whole Confirmed reservation before check-in (HTL-21, PAY-03)',
+    description:
+      'The rooms are released and Payments is told to refund according to the hotel tiers. ' +
+      'Ask for confirmation first, after showing the refund preview.',
+  })
+  cancel(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.bookingsService.cancel(user.id, id);
   }
 
   @Get(':id')
