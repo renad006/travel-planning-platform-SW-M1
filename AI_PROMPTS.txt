@@ -780,6 +780,7 @@ Created the reviews module (schema, two DTOs, service, controller, module)
 inside backend/src/reviews, confirmed the build passes, and committed to
 feature/PAY-01-payment-schemas.
 ================================================================================
+================================================================================
 Date: 2026-11-17
 Student: Nourhan 
 Tool: Claude
@@ -792,4 +793,18 @@ Created backend/src/itineraries with the schema, DTOs, service, controller and m
 registered ItinerariesModule in app.module.ts; tested all 12 Swagger cases (create 201,
 list 200, get 200, update 200, empty title 400, unknown id 404, admin cross-owner 404,
 unauthenticated 401, delete 200, post-delete 404).
+================================================================================
+================================================================================
+
+Date: 2026-11-17
+Student: Member 6
+Tool: Claude
+Related Requirement: ITN-05, ITN-07, ITN-08, ITN-09
+Prompt:
+Implement day management for itineraries: add day (max 60), edit city/notes, delete day (renumbering), 
+reorder day, and automatically calculate calendar dates based on itinerary start date. 
+How the output was used:
+Added Create/Update/Reorder DTOs, service methods, and controller endpoints. Tested in Swagger: 
+add 201, max 60 error 400, edit 200, reorder 200, delete 200, invalid reorder 400. Verified dates 
+increment correctly from the start date.
 ================================================================================
