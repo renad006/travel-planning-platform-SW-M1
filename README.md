@@ -55,3 +55,4 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Tags** (`/api/tags/:tag/posts`): Get posts by tag (BLG-08).
 - **Rules**: Max 5 tags per post (max 30 chars each). Interaction score determines search ranking. Ownership checks prevent editing others' content.
 - **Comments** (`/api/posts/:id/comments`, `/api/comments`): Add a comment to a published post (BLG-05), edit/delete own comments (BLG-07).
+- **Reports & Moderation** (`/api/reports`, `/api/admin/reports`): Users can report content once (GEN-09). Admins can view open reports and resolve them by dismissing, hiding, or deleting the content (GEN-10). Admin actions are audited (GEN-07) and authors are notified.
