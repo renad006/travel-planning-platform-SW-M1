@@ -1,3 +1,4 @@
+import { ReviewsModule } from './reviews/reviews.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MustChangePasswordGuard } from './common/guards/must-change-password.guard';
 import { Module } from '@nestjs/common';
@@ -47,6 +48,7 @@ import { ReportsModule } from './reports/reports.module';
     HotelsModule,
     HotelBookingsModule,
     PaymentsModule,
+    ReviewsModule,
     AdminModule,
     ItinerariesModule,
     ItineraryBudgetModule,
@@ -54,7 +56,10 @@ import { ReportsModule } from './reports/reports.module';
     BlogModule,
 
     ItinerarySharingModule,
-    ReportsModule
+
+    ReportsModule,
+
+
 
   ],
   controllers: [AppController],
