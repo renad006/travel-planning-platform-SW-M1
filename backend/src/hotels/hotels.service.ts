@@ -1,6 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { unlink } from 'fs/promises';
 import { isValidObjectId, Model } from 'mongoose';
+import { basename, join } from 'path';
+import { HOTEL_PHOTO_DIR, HOTEL_PHOTO_URL_PREFIX, MAX_HOTEL_PHOTOS } from './hotel-photo-upload';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { Hotel, HotelDocument } from './schemas/hotel.schema';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
@@ -450,6 +453,50 @@ export class HotelsService {
         if (!hotel) {
             throw new NotFoundException('Hotel not found');
         }
+        return hotel;
+    }
+
+    // GEN-08: add one photo, at most 5 per hotel. The 'photos.4 does not exist' filter makes
+    // the cap hold even if two uploads arrive at the same moment.
+    async addPhoto(id: string, file?: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException('No image file provided');
+        }
+        const hotel = isValidObjectId(id)
+            ? await this.hotelModel
+                  .findOneAndUpdate(
+                      { _id: id, 'photos.4': { $exists: false } },
+                      { $push: { photos: `${HOTEL_PHOTO_URL_PREFIX}${file.filename}` } },
+                      { returnDocument: 'after' },
+                  )
+                  .exec()
+            : null;
+        if (!hotel) {
+            await unlink(file.path).catch(() => undefined); // the upload was refused, drop the file
+            const exists = isValidObjectId(id) && (await this.hotelModel.exists({ _id: id }));
+            if (!exists) {
+                throw new NotFoundException('Hotel not found');
+            }
+            throw new ConflictException(`A hotel can have at most ${MAX_HOTEL_PHOTOS} photos`);
+        }
+        return hotel;
+    }
+
+    async removePhoto(id: string, filename: string) {
+        const url = `${HOTEL_PHOTO_URL_PREFIX}${basename(filename)}`;
+        const hotel = isValidObjectId(id)
+            ? await this.hotelModel
+                  .findOneAndUpdate(
+                      { _id: id, photos: url },
+                      { $pull: { photos: url } },
+                      { returnDocument: 'after' },
+                  )
+                  .exec()
+            : null;
+        if (!hotel) {
+            throw new NotFoundException('Photo not found for this hotel');
+        }
+        await unlink(join(HOTEL_PHOTO_DIR, basename(filename))).catch(() => undefined);
         return hotel;
     }
 }

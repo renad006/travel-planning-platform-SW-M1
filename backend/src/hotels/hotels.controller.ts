@@ -1,5 +1,7 @@
-import { Body, Controller, NotFoundException, Param, Patch, Post, Put, Delete, Get, Query, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, NotFoundException, Param, Patch, Post, Put, Delete, Get, Query, HttpCode, HttpStatus, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { hotelPhotoUploadOptions } from './hotel-photo-upload';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import { CreateHotelDto } from './dto/create-hotel.dto';
@@ -152,5 +154,22 @@ export class HotelsController {
     @ApiOperation({ summary: 'Set my hotel cancellation tiers (HTL-10)' })
     setPolicies(@Param('id') id: string, @Body() dto: UpdatePoliciesDto) {
         return this.hotelsService.setPolicies(id, dto);
+    }
+
+    @Post(':id/photos')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Upload a hotel photo, JPG or PNG, max 5 MB, up to 5 (HTL-01, GEN-08)' })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+    @UseInterceptors(FileInterceptor('file', hotelPhotoUploadOptions))
+    uploadPhoto(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+        return this.hotelsService.addPhoto(id, file);
+    }
+
+    @Delete(':id/photos/:filename')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'Remove one hotel photo by its file name (HTL-01, GEN-08)' })
+    removePhoto(@Param('id') id: string, @Param('filename') filename: string) {
+        return this.hotelsService.removePhoto(id, filename);
     }
 }
