@@ -62,6 +62,7 @@ interface LeanHotelBooking {
   checkIn: Date;
   checkOut: Date;
   totalPrice: number;
+  currency: string;
   status: BookingStatus;
   createdAt: Date;
 }
@@ -320,7 +321,7 @@ export class AdminManagementService {
         startDate: b.checkIn,
         endDate: b.checkOut,
         amount: b.totalPrice,
-        currency: null,
+        currency: b.currency,
         status: b.status,
         createdAt: b.createdAt,
       })),

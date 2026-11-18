@@ -5,6 +5,7 @@ import { HotelBookingsModule } from '../hotel-bookings/hotel-bookings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { RefundsController } from './refunds.controller';
 import { RefundsService } from './refunds.service';
 import { Payment, PaymentSchema } from './schemas/payment.schema';
 import {
@@ -32,7 +33,7 @@ import { Refund, RefundSchema } from './schemas/refund.schema';
     HotelBookingsModule,
     NotificationsModule,
   ],
-  controllers: [PaymentsController],
+  controllers: [PaymentsController, RefundsController],
   providers: [PaymentsService, RefundsService],
   exports: [PaymentsService],
 })
