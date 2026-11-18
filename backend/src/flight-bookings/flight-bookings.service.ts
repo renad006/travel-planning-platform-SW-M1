@@ -32,6 +32,7 @@ import {
   AirportDocument,
 } from '../reference-data/schemas/airport.schema';
 import { BookingType } from '../payments/enums/payment.enums';
+import { calculateRefund } from '../payments/refund-calculator';
 import type {
   PayableBooking,
   PayableBookingService,
@@ -293,9 +294,39 @@ export class FlightBookingsService implements PayableBookingService {
   }
 
   // ======================================================================
-  // FLT-26: cancellation. The refund itself is calculated and paid by Payments (Member 5):
-  // TODO(Member 5): add GET :id/cancellation-preview with Payments' calculateRefund() once available.
+  // FLT-26: cancellation. The refund itself is calculated and paid by Payments (Member 5);
+  // the preview below uses the same calculateRefund(), so what the user is shown is what they get.
   // ======================================================================
+
+  /**
+   * FLT-26: the refund the user would get if they cancelled NOW, shown before they confirm.
+   * It changes nothing. Same rules as cancel(): only my own Confirmed booking before departure
+   * (anything else is the same 409 message as cancel). The airline policy that applies is the one
+   * saved on the booking when it was made, measured from the (outbound) departure.
+   */
+  async cancellationPreview(userId: string, id: string) {
+    const booking = await this.findOwned(userId, id);
+    const blocker = this.cancellationBlocker(booking, new Date());
+    if (blocker) throw new ConflictException(blocker);
+
+    const result = calculateRefund({
+      tiers: (booking.policiesSnapshot?.cancellationTiers ?? []).map((t) => ({
+        daysBeforeDeparture: t.daysBeforeDeparture,
+        refundPercentage: t.refundPercentage,
+      })),
+      bookingAmount: booking.totalPrice,
+      cancellationAnchor: booking.departureTime,
+    });
+    return {
+      reference: booking.reference ?? null,
+      paidAmount: booking.totalPrice,
+      refundPercent: result.percent,
+      refundAmount: result.amount,
+      daysRemaining: result.daysRemaining,
+      currency: booking.currency,
+    };
+  }
+
   async cancel(userId: string, id: string, dto: CancelFlightBookingDto) {
     const booking = await this.findOwned(userId, id);
     const now = new Date();

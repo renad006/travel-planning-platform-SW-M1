@@ -89,6 +89,21 @@ export class FlightBookingsController {
     return this.service.get(String(user._id), id);
   }
 
+  @Get(':id/cancellation-preview')
+  @ApiOperation({
+    summary: 'Refund I would get if I cancel this booking now (FLT-26)',
+    description:
+      'Changes nothing. Show it before asking the user to confirm the cancellation (GEN-03). ' +
+      'Uses the airline policy saved on the booking and the same refund rule Payments applies.',
+  })
+  @ApiNotFoundResponse({ description: 'Not found, or not your booking' })
+  @ApiConflictResponse({
+    description: 'Not Confirmed, already cancelled, or the flight already departed',
+  })
+  cancellationPreview(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.service.cancellationPreview(String(user._id), id);
+  }
+
   @Post(':id/cancel')
   @HttpCode(200)
   @ApiOperation({
