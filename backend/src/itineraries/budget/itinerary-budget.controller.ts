@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -13,6 +13,7 @@ import {
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { UserDocument } from '../../users/schemas/user.schema';
 import { ItineraryBudgetService } from './itinerary-budget.service';
+import { BudgetSummaryQueryDto } from './dto/budget-summary-query.dto';
 import { CreateBudgetEntryDto, UpdateBudgetEntryDto } from './dto/budget-entry.dto';
 import {
   CreateTransportCostDto,
@@ -30,6 +31,25 @@ import {
 @Controller('itineraries')
 export class ItineraryBudgetController {
   constructor(private readonly service: ItineraryBudgetService) {}
+
+  // ---------------- budget summary ----------------
+  @Get(':id/budget-summary')
+  @ApiOperation({
+    summary:
+      'ITN-14 / ITN-18: budget totals of the itinerary by category and by day, converted into one currency',
+  })
+  @ApiOkResponse({
+    description:
+      'Totals in the chosen currency with the exchange-rate date. Amounts with no rate or no currency are listed in "unconverted", never guessed',
+  })
+  @ApiBadRequestResponse({ description: 'No exchange rates for the requested currency' })
+  getBudgetSummary(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Query() query: BudgetSummaryQueryDto,
+  ) {
+    return this.service.getBudgetSummary(user._id.toString(), id, query.currency, user.preferredCurrency);
+  }
 
   // ---------------- budget entries ----------------
   @Post(':id/days/:dayId/budget-entries')
