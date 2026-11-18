@@ -10,6 +10,7 @@ import { TagsController } from './tags.controller';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { AuthorsController } from './authors.controller';
 import { UploadsModule } from '../uploads/uploads.module';
+import { Itinerary, ItinerarySchema } from '../itineraries/schemas/itinerary.schema';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UploadsModule } from '../uploads/uploads.module';
       { name: Comment.name, schema: CommentSchema },
       { name: Like.name, schema: LikeSchema },
       { name: User.name, schema: UserSchema },
+       { name: Itinerary.name, schema: ItinerarySchema },
     
     ]), UploadsModule,
   ],

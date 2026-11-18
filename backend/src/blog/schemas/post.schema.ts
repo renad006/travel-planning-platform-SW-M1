@@ -19,6 +19,9 @@ export class Post {
   @Prop({ required: true })
   body: string;
 
+    @Prop({ type: Types.ObjectId, ref: 'Itinerary' })
+  itineraryId?: Types.ObjectId;
+
   @Prop({ type: [String], default: [] })
   tags: string[];
 

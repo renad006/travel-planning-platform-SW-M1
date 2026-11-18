@@ -11,6 +11,8 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { Like, LikeDocument } from './schemas/like.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { UploadsService } from '../uploads/uploads.service';
+import { Itinerary, ItineraryDocument } from '../itineraries/schemas/itinerary.schema';
+import { AttachItineraryDto } from './dto/attach-itinerary.dto';
 
 @Injectable()
 export class BlogService {
@@ -20,6 +22,7 @@ export class BlogService {
     @InjectModel(Like.name) private likeModel: Model<LikeDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly uploadsService: UploadsService,
+    @InjectModel(Itinerary.name) private itineraryModel: Model<ItineraryDocument>,
   ) {}
 
   async findAllPublished(dto: GetPostsDto) {
@@ -363,5 +366,27 @@ export class BlogService {
       comments,
       likedByMe,
     };
+  }
+
+    async attachItinerary(postId: string, authorId: string, dto: AttachItineraryDto) {
+    const post = await this.postModel.findById(postId);
+    if (!post) throw new NotFoundException('Post not found');
+    if (post.authorId.toString() !== authorId) {
+      throw new ForbiddenException('You can only edit your own posts');
+    }
+
+    // Verify the itinerary exists and belongs to the author
+    const itinerary = await this.itineraryModel.findById(dto.itineraryId);
+    if (!itinerary) {
+      throw new NotFoundException('Itinerary not found');
+    }
+    if (itinerary.userId.toString() !== authorId) {
+      throw new ForbiddenException('You can only attach your own itineraries');
+    }
+
+    post.itineraryId = new Types.ObjectId(dto.itineraryId);
+    await post.save();
+
+    return { message: 'Itinerary attached successfully', itineraryId: post.itineraryId };
   }
 }

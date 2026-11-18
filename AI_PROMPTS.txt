@@ -1063,3 +1063,13 @@ Help me add direct admin hide and delete endpoints for posts and comments. I nee
 How the output was used:
 Added directModerateContent to ReportsService, added direct hide/delete routes to AdminReportsController, and integrated AuditService and NotificationsService using the correct object signature.
 ================================================================================
+================================================================================
+Date: 2026-11-18
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-13, BLG-02
+Prompt:
+Help me add the bonus endpoint to attach an itinerary to a post. Also, fix the GET single post endpoint so authors can see their own drafts. Since the global @Public() guard skips auth entirely, I need a way to optionally check the cookie.
+How the output was used:
+Added itineraryId to the Post schema and injected the Itinerary model to verify ownership. Created an OptionalAuthGuard that catches JWT errors and returns null instead of 401, applied it to GET /api/posts/:id. Verified both features in Swagger.
+================================================================================

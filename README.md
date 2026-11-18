@@ -60,3 +60,4 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Images** (`/api/posts/:id/images`): Upload/delete images for a post (GEN-08, BLG-10). Max 5 JPG/PNG images, 5MB each. Shared `UploadsService` is available for other modules.
 
 - **Reports & Moderation** (`/api/reports`, `/api/admin/reports`): Users can report content once (GEN-09). Admins can view open reports and resolve them by dismissing, hiding, or deleting the content (GEN-10). Admin actions are audited (GEN-07) and authors are notified.
+- **Bonus (BLG-13)**: Attach an itinerary to a post (`PATCH /api/posts/:id/itinerary`).
