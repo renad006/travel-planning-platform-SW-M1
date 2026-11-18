@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, Patch, Delete, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Patch, Delete, Param , UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { BlogService } from './blog.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -12,6 +12,8 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { AttachItineraryDto } from './dto/attach-itinerary.dto';
+import { OptionalAuthGuard } from './guards/optional-auth.guard';
 
 @ApiTags('Blog - Posts')
 @Controller('posts')
@@ -37,6 +39,7 @@ export class BlogController {
 
     @Get(':id')
   @Public()
+  @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: 'Get a single post by ID (BLG-02)' })
   async getPostById(
     @Param('id') id: string,
@@ -133,6 +136,17 @@ export class BlogController {
     @CurrentUser() user: UserDocument,
   ) {
     return this.blogService.deleteImageFromPost(id, imageId, user._id.toString());
+  }
+
+    @Patch(':id/itinerary')
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Attach an itinerary to a post (BLG-13)' })
+  async attachItinerary(
+    @Param('id') id: string,
+    @CurrentUser() user: UserDocument,
+    @Body() dto: AttachItineraryDto,
+  ) {
+    return this.blogService.attachItinerary(id, user._id.toString(), dto);
   }
   
 }
