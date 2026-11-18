@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
@@ -46,6 +46,18 @@ export class RefundsService {
       );
       this.stripe = null;
     }
+  }
+
+  // PAY-03: get a refund by id (owner or admin only)
+  async getRefund(userId: string, id: string, isAdmin = false) {
+    const refund = await this.refundModel.findById(id).exec();
+    if (!refund) {
+      throw new NotFoundException('Refund not found');
+    }
+    if (!isAdmin && refund.userId.toString() !== userId) {
+      throw new NotFoundException('Refund not found');
+    }
+    return refund;
   }
 
   // PAY-03: a Confirmed flight booking was cancelled (by the user, FLT-26, or the airline, FLT-06).
