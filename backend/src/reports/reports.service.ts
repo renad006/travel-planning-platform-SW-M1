@@ -13,7 +13,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Injectable()
 export class ReportsService {
-   constructor(
+  constructor(
     @InjectModel(Report.name) private reportModel: Model<ReportDocument>,
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
@@ -23,7 +23,6 @@ export class ReportsService {
 
   async createReport(reporterId: string, dto: CreateReportDto) {
     // TODO GEN-09: Verify the target actually exists based on targetType.
-    // For now, we assume it's valid and just save the report.
     try {
       const report = await this.reportModel.create({
         reporterId: new Types.ObjectId(reporterId),
@@ -40,7 +39,8 @@ export class ReportsService {
       throw error;
     }
   }
-    async directModerateContent(
+
+  async directModerateContent(
     type: string,
     id: string,
     adminId: string,
@@ -76,28 +76,31 @@ export class ReportsService {
     }
 
     // 2. Log the action
-       await this.auditService.log({
-      actor: { id: adminId, role: Role.ADMIN }, // <--- FIXED HERE
+    await this.auditService.log({
+      actor: { id: adminId, role: Role.ADMIN },
       action: `DIRECT_${action.toUpperCase()}`,
       targetType: type,
       targetId: id,
       metadata: { source: 'direct_admin_action' },
     });
 
-    // 3. Notify the author
+    // 3. Notify the author (FIXED GRAMMAR)
     if (authorId) {
+      const actionPastTense = action === 'hide' ? 'hidden' : 'deleted';
       await this.notificationsService.notify({
         userId: authorId,
         type: 'CONTENT_MODERATED',
-        title: `Content ${action}ed`,
-        message: `Your ${type} was ${action}ed by an admin.`,
+        title: `Content ${actionPastTense}`, 
+        message: `Your ${type} was ${actionPastTense} by an admin.`,
         related: { type, id },
       });
     }
 
-    return { message: `Content ${action}ed successfully` };
+    const actionPastTense = action === 'hide' ? 'hidden' : 'deleted';
+    return { message: `Content ${actionPastTense} successfully` };
   }
-    async getOpenReports(dto: PaginationQueryDto) {
+
+  async getOpenReports(dto: PaginationQueryDto) {
     const { page = 1, limit = 10 } = dto;
     const skip = (page - 1) * limit;
 
@@ -158,7 +161,7 @@ export class ReportsService {
     if (dto.note) report.resolutionNote = dto.note;
     await report.save();
 
-    // FIXED: Matching your exact AuditService signature
+    // Log the action
     await this.auditService.log({
       actor: { id: adminId, role: Role.ADMIN },
       action: `MODERATION_${dto.action.toUpperCase()}`,
@@ -167,12 +170,17 @@ export class ReportsService {
       metadata: { reportId: report.id, note: dto.note || 'none' },
     });
 
+    // Notify the author (FIXED GRAMMAR)
     if (authorId && dto.action !== ReportAction.DISMISS) {
+      const actionPastTense = 
+        dto.action === ReportAction.HIDE ? 'hidden' : 
+        dto.action === ReportAction.DELETE ? 'deleted' : 'moderated';
+
       await this.notificationsService.notify({
         userId: authorId,
         type: 'CONTENT_MODERATED',
-        title: `Content ${dto.action}ed`,
-        message: `Your ${report.targetType} was ${dto.action}ed by an admin. Note: ${dto.note || 'No note provided'}`,
+        title: `Content ${actionPastTense}`,
+        message: `Your ${report.targetType} was ${actionPastTense} by an admin. Note: ${dto.note || 'No note provided'}`,
         related: { type: report.targetType, id: report.targetId.toString() },
       });
     }
