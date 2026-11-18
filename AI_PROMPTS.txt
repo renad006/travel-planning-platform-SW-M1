@@ -584,6 +584,17 @@ How the output was used:
 I used the generated fx-rates module (client, service, controller, schema, DTO and unit tests) and registered FxRatesModule in app.module.ts. I added my FXRATES_API_KEY to my local .env, and tested the real API response, the conversion endpoint and the cached snapshot in Swagger and Compass.
 ================================================
 
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: ITN-14 / ITN-18 
+Prompt: 
+Add a budget summary endpoint for an itinerary: totals by category and by day, converted to the user's preferred currency using the FX rates service, showing the rate date, and listing amounts that cannot be converted instead of guessing them.
+How the output was used: 
+I used the generated summary builder, DTO, service method and controller route, and registered FxRatesModule in the budget module. I tested conversion, the unconverted amounts, access rules and error cases in Swagger.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham

@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { FxRatesService } from '../../fx-rates/fx-rates.service';
+import { isSupportedCurrency } from '../../fx-rates/fx-conversion';
 import { Itinerary, ItineraryDocument } from '../schemas/itinerary.schema';
 import {
   BudgetableDay,
@@ -13,6 +15,7 @@ import {
   calculateDaySubtotal,
   calculateDaysSubtotal,
 } from './budget-calculator';
+import { BudgetSummary, buildBudgetSummary } from './budget-summary';
 import { CreateBudgetEntryDto, UpdateBudgetEntryDto } from './dto/budget-entry.dto';
 import {
   CreateTransportCostDto,
@@ -37,7 +40,66 @@ export class ItineraryBudgetService {
   constructor(
     @InjectModel(Itinerary.name)
     private readonly itineraryModel: Model<ItineraryDocument>,
+    private readonly fxRates: FxRatesService,
   ) {}
+
+  // ---------------- budget summary (ITN-14, ITN-18) ----------------
+  /**
+   * Totals of the whole itinerary, by category and by day, converted into one currency with the
+   * platform's daily exchange rates. Only the owner can read it (anyone else gets 404).
+   * `preferredCurrency` is the user's own setting; it is used when `currency` is not given, and
+   * USD is used (with a warning) when the provider has no rate for it.
+   */
+  async getBudgetSummary(
+    userId: string,
+    itineraryId: string,
+    currency: string | undefined,
+    preferredCurrency: string | undefined,
+  ): Promise<
+    BudgetSummary & {
+      itineraryId: string;
+      title: string;
+      rateDate: Date;
+      stale: boolean;
+      warning?: string;
+    }
+  > {
+    if (!Types.ObjectId.isValid(itineraryId)) throw new NotFoundException('Itinerary not found');
+    const itinerary = await this.itineraryModel
+      .findOne({ _id: new Types.ObjectId(itineraryId), userId: new Types.ObjectId(userId) })
+      .select('title days')
+      .lean()
+      .exec();
+    if (!itinerary) throw new NotFoundException('Itinerary not found');
+
+    const current = await this.fxRates.getRates();
+
+    let target = currency;
+    let warning: string | undefined;
+    if (target) {
+      if (!isSupportedCurrency(current.rates, target)) {
+        throw new BadRequestException(`Exchange rates are not available for currency ${target}`);
+      }
+    } else {
+      const preferred = (preferredCurrency ?? '').toUpperCase();
+      if (isSupportedCurrency(current.rates, preferred)) {
+        target = preferred;
+      } else {
+        target = 'USD';
+        warning = `No exchange rates for your preferred currency${preferred ? ` (${preferred})` : ''}, showing USD`;
+      }
+    }
+
+    const summary = buildBudgetSummary(itinerary.days ?? [], current.rates, target);
+    return {
+      itineraryId,
+      title: itinerary.title,
+      ...summary,
+      rateDate: current.rateDate,
+      stale: current.stale,
+      ...(warning ? { warning } : {}),
+    };
+  }
 
   // ---------------- subtotals (ITN-09, ITN-14) ----------------
   // Plain calculations, no database access: the caller already has the itinerary loaded.
