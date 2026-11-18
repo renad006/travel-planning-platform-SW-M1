@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCookieAuth,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -43,6 +44,18 @@ export class ItinerarySharingController {
   @ApiNotFoundResponse({ description: 'Not found, private, or hidden' })
   view(@Param('id') id: string) {
     return this.service.viewPublic(id);
+  }
+
+  @Post('shared-itineraries/:id/clone')
+  @ApiCookieAuth('access_token')
+  @ApiOperation({
+    summary: 'ITN-21: copy a public itinerary into my own itineraries as a private, independent copy that credits its author',
+  })
+  @ApiCreatedResponse({ description: 'The new private itinerary' })
+  @ApiUnauthorizedResponse({ description: 'Not logged in' })
+  @ApiNotFoundResponse({ description: 'Not found, private, or hidden' })
+  clone(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.service.clone(user._id.toString(), id);
   }
 
   @Patch('itineraries/:id/visibility')

@@ -6,6 +6,7 @@ import { User, UserDocument } from '../../users/schemas/user.schema';
 import { calculateDaysSubtotal } from '../budget/budget-calculator';
 import { Itinerary, ItineraryDocument } from '../schemas/itinerary.schema';
 import { SearchSharedItinerariesDto } from './dto/search-shared-itineraries.dto';
+import { buildItineraryClone } from './itinerary-clone';
 import { Visibility } from './dto/set-visibility.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -204,6 +205,40 @@ export class ItinerarySharingService {
       // per currency; conversion to the viewer's currency comes with the FX rates module (ITN-18)
       budget: calculateDaysSubtotal(doc.days),
       updatedAt: (doc as unknown as { updatedAt: Date }).updatedAt,
+    };
+  }
+
+  /**
+   * ITN-21: copy a public itinerary into the user's own itineraries, as a PRIVATE copy that is
+   * independent of the original and credits its author. Private, hidden, unknown or ownerless
+   * itineraries are a plain 404, same as viewing them.
+   */
+  async clone(userId: string, itineraryId: string) {
+    if (!Types.ObjectId.isValid(itineraryId)) throw new NotFoundException('Itinerary not found');
+    const source = await this.itineraryModel
+      .findOne({ _id: new Types.ObjectId(itineraryId), ...PUBLIC_FILTER })
+      .lean()
+      .exec();
+    if (!source) throw new NotFoundException('Itinerary not found');
+
+    const author = await this.userModel
+      .findOne({ _id: source.userId, status: AccountStatus.ACTIVE })
+      .select('name')
+      .lean()
+      .exec();
+    if (!author) throw new NotFoundException('Itinerary not found');
+
+    const created = await this.itineraryModel.create(
+      buildItineraryClone(source, new Types.ObjectId(userId)),
+    );
+    return {
+      id: created._id.toString(),
+      title: created.title,
+      visibility: created.visibility,
+      daysCount: created.days.length,
+      originalItineraryId: source._id.toString(),
+      originalAuthor: { name: author.name },
+      createdAt: (created as unknown as { createdAt: Date }).createdAt,
     };
   }
 }
