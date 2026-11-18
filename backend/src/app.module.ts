@@ -1,3 +1,4 @@
+import { FxRatesModule } from './fx-rates/fx-rates.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MustChangePasswordGuard } from './common/guards/must-change-password.guard';
@@ -60,7 +61,7 @@ import { ReportsModule } from './reports/reports.module';
     ReportsModule,
 
 
-
+    FxRatesModule
   ],
   controllers: [AppController],
   providers: [

@@ -573,6 +573,16 @@ Added GET /shared-itineraries and GET /shared-itineraries/:id in the sharing mod
 ================================================
 
 ================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: ITN-18 (currency conversion with exchange rates)
+Prompt: 
+Build a currency conversion module for the Travel Planning Platform backend (NestJS + MongoDB). 
+It should fetch exchange rates from FXRatesAPI, cache one snapshot per day and fall back to the last cached snapshot if the provider is down, expose endpoints to list supported currencies and convert an amount, and export a service other modules (budget summary) can use.
+How the output was used: 
+I used the generated fx-rates module (client, service, controller, schema, DTO and unit tests) and registered FxRatesModule in app.module.ts. I added my FXRATES_API_KEY to my local .env, and tested the real API response, the conversion endpoint and the cached snapshot in Swagger and Compass.
+================================================
 
 ================================================================================
 Date: 2026-11-11
