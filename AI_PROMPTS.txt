@@ -595,6 +595,28 @@ How the output was used:
 I used the generated summary builder, DTO, service method and controller route, and registered FxRatesModule in the budget module. I tested conversion, the unconverted amounts, access rules and error cases in Swagger.
 ================================================
 
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: ITN-21 
+Prompt: 
+Add a clone endpoint so a user can copy a public itinerary into their own account as a private copy with all days, activities and budget, independent from the original, and crediting the original author.
+How the output was used: 
+I used the generated clone builder, service method and route, and tested public/private access, independence of the copy, ownership and the 401/404 cases in Swagger with two accounts.
+================================================
+
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-26 
+Prompt: 
+Add a cancellation preview endpoint for flight bookings that shows the refund the user would get if they cancel now, using Payments' calculateRefund and the policy saved on the booking, without changing anything.
+How the output was used: 
+I used the generated service method and route, and tested the preview for a confirmed booking, repeated calls, a cancelled booking and another user's booking in Swagger.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
