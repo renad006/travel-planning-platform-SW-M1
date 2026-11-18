@@ -675,7 +675,7 @@ committed to feature/PAY-01-payment-schemas.
 ================================================================================
 ================================================================================
 Date: 2026-11-14
-Student: Malak
+Student: Malak Haytham
 Tool: Claude
 Related Requirement: PAY-02
 Prompt:
@@ -689,6 +689,26 @@ and payments.module.ts inside backend/src/payments, fixed an import-type
 error flagged by VS Code, confirmed the build passes, and committed to
 feature/PAY-01-payment-schemas.
 ================================================================================
+================================================
+Date: 2026-11-18
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-03
+Prompt:
+GET /api/refunds/:id was never implemented — no RefundsController existed. Help me build it following the existing PaymentsController pattern (owner-or-admin access, 404 if not found or not yours).
+How the output was used:
+Used the generated RefundsController + RefundsService.getRefund() method as-is, registered it in PaymentsModule, verified it compiles and returns the correct refund for both the owner and an admin.
+================================================
+Date: 2026-11-18
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ACC-17
+Prompt:
+GET /api/admin/bookings returns currency: null for every hotel booking entry while flight bookings show the real currency. Help me find and fix the bug in admin-management.service.ts.
+How the output was used:
+Traced it to a hardcoded null literal in the hotel-booking mapping and a missing currency field on the LeanHotelBooking interface. Applied the fix, rebuilt, and confirmed GET /api/admin/bookings now shows the correct currency for hotel entries.
+================================================
+
 ================================================
 ================================================
 Date: 2026-11-06
