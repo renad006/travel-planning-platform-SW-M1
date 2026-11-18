@@ -50,6 +50,10 @@ export class FlightSegment {
   /** Fare for this segment: (adults + children) x fare + infants x 10% x fare. */
   @Prop({ type: Number, required: true, min: 0 })
   fareSubtotal: number;
+
+  /** FLT-28: set once the seats of this flight were assigned automatically (24 h before departure). */
+  @Prop({ type: Boolean })
+  seatsLocked?: boolean;
 }
 export const FlightSegmentSchema = SchemaFactory.createForClass(FlightSegment);
 

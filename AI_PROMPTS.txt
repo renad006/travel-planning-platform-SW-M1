@@ -617,6 +617,21 @@ How the output was used:
 I used the generated service method and route, and tested the preview for a confirmed booking, repeated calls, a cancelled booking and another user's booking in Swagger.
 ================================================
 
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-28 
+Prompt: 
+Add seat selection for confirmed flight bookings after payment. Choosing is optional and seats are auto-assigned if not chosen; 
+changes close 24 hours before departure and each passenger can pick a seat at most 3 times in total; seats are free; 
+no double booking of a seat even with simultaneous requests; 
+infants without seats; per-flight seats for round trips; seats released on cancellation. 
+Also remove the resolved TODO about expired holds, since Payments already cancels the PaymentIntent on the expired event.
+How the output was used: 
+I used the generated seat layout, seat assignment collection, service, scheduled auto-assign job and controller, and tested the seat map, picking and changing seats, the 3-pick limit, conflicts, infants, other users, the 24-hour cut-off and cancellation in Swagger and Compass.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham

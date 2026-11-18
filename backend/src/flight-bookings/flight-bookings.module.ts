@@ -6,13 +6,16 @@ import { FlightBookingsController } from './flight-bookings.controller';
 import { FlightBookingsListener } from './flight-bookings.listener';
 import { FlightBookingsService } from './flight-bookings.service';
 import { FlightBookingsTasks } from './flight-bookings.tasks';
+import { FlightSeatsController } from './seats/flight-seats.controller';
+import { FlightSeatsService } from './seats/flight-seats.service';
+import { SeatAssignment, SeatAssignmentSchema } from './seats/schemas/seat-assignment.schema';
 import {
   FlightBooking,
   FlightBookingSchema,
 } from './schemas/flight-booking.schema';
 
 /**
- * Member 3: flight bookings (FLT-19 to FLT-26).
+ * Member 3: flight bookings (FLT-19 to FLT-26) and seat selection (FLT-28, bonus).
  *
  * FlightsModule (Member 2) provides the seat inventory API and exports the Flight / Airline /
  * CabinInventory models. NotificationsModule and ReferenceDataModule (Member 1) are global.
@@ -25,15 +28,17 @@ import {
   imports: [
     MongooseModule.forFeature([
       { name: FlightBooking.name, schema: FlightBookingSchema },
+      { name: SeatAssignment.name, schema: SeatAssignmentSchema }, // FLT-28
     ]),
     FlightsModule,
   ],
-  controllers: [FlightBookingsController],
+  controllers: [FlightBookingsController, FlightSeatsController],
   providers: [
     FlightBookingsService,
     FlightBookingsTasks,
     { provide: PAYABLE_FLIGHT_BOOKINGS, useExisting: FlightBookingsService },
     FlightBookingsListener,
+    FlightSeatsService, // FLT-28
   ],
   exports: [FlightBookingsService, PAYABLE_FLIGHT_BOOKINGS, MongooseModule],
 })
