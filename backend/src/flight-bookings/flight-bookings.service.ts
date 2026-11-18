@@ -1149,10 +1149,8 @@ export class FlightBookingsService implements PayableBookingService {
         `expiry of booking ${record._id.toString()}`,
       );
     }
-    // TODO(Member 5): once PaymentsService.cancelIntentForBooking('flight', id) exists, the open
-    // Stripe PaymentIntent must be cancelled here. The event below carries everything Payments
-    // needs, so Payments can simply listen to it (no circular module dependency); otherwise call
-    // it directly from this method.
+    // The open Stripe PaymentIntent is cancelled by Payments (Member 5): RefundsService listens to
+    // this event and cancels it, so nothing more is needed here (no circular module dependency).
     const expired: FlightBookingExpiredEvent = {
       bookingId: record._id.toString(),
       userId: record.userId.toString(),
