@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min, MinLength, ValidateIf, IsNotEmpty } from 'class-validator';
 
 export class CreateActivityDto {
   @ApiProperty({ example: 'Visit the Brandenburg Gate' })
@@ -23,8 +23,9 @@ export class CreateActivityDto {
   @Min(0)
   cost?: number;
 
-  @ApiProperty({ example: 'EUR', required: false })
-  @IsOptional()
+  @ApiProperty({ example: 'EUR', required: false, description: 'Required if cost is provided' })
+  @ValidateIf(o => o.cost !== undefined) // <--- Only validate currency if cost exists
   @IsString()
+  @IsNotEmpty()
   currency?: string;
 }

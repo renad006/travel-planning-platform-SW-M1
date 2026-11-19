@@ -19,6 +19,7 @@ import { SearchFlightsDto, FlightSortBy, SortOrder } from '../flights/dto/search
 import { SearchHotelsQueryDto } from '../hotels/dto/search-hotels-query.dto';
 import { SearchItineraryFlightsDto } from './dto/search-itinerary-flights.dto';
 import { SearchItineraryHotelsDto } from './dto/search-itinerary-hotels.dto';
+import { ItineraryBudgetService } from './budget/itinerary-budget.service';
 
 @Injectable()
 export class ItinerariesService {
@@ -29,6 +30,7 @@ export class ItinerariesService {
     private readonly flightsService: FlightsService,
     private readonly hotelsService: HotelsService,
     private readonly hotelBookingsService: HotelBookingsService,
+    private readonly budgetService: ItineraryBudgetService,
   ) {}
   // --- Phase 1: Itinerary CRUD ---
   async create(userId: string, dto: CreateItineraryDto) {
@@ -347,14 +349,36 @@ export class ItinerariesService {
     return doc;
   }
 
-  private calculateDates(doc: ItineraryDocument) {
+  private calculateDaysWithSubtotals(doc: ItineraryDocument) {
     const start = new Date(doc.startDate).getTime();
     const oneDayMs = 24 * 60 * 60 * 1000;
+    const resultDays: any[] = [];
     
-    return doc.days.map((day) => ({
-      ...(day as any).toObject(),
-      date: new Date(start + (day.dayNumber - 1) * oneDayMs).toISOString().split('T')[0],
-    }));
+    let i = 0;
+    while (i < doc.days.length) {
+      const currentCity = doc.days[i].city;
+      const group = [];
+      
+      // Find contiguous days with the same city
+      while (i < doc.days.length && doc.days[i].city === currentCity) {
+        group.push(doc.days[i]);
+        i++;
+      }
+      
+      // Calculate the subtotal for this whole city group using Member 3's service
+      const groupSubtotal = this.budgetService.calculateDaysSubtotal(group);
+      
+      // Push each day, attaching the group subtotal and day count
+      for (const day of group) {
+        resultDays.push({
+          ...(day as any).toObject(),
+          date: new Date(start + (day.dayNumber - 1) * oneDayMs).toISOString().split('T')[0],
+          groupDayCount: group.length,
+          groupBudgetSubtotal: groupSubtotal,
+        });
+      }
+    }
+    return resultDays;
   }
 
   private toSummary(doc: ItineraryDocument) {
@@ -380,7 +404,7 @@ export class ItinerariesService {
       visibility: doc.visibility,
       isHidden: doc.isHidden,
       daysCount: doc.days.length,
-      days: this.calculateDates(doc),
+      days: this.calculateDaysWithSubtotals(doc),
       originalAuthorId: doc.originalAuthorId?.toString() ?? null,
       originalItineraryId: doc.originalItineraryId?.toString() ?? null,
       updatedAt: (doc as any).updatedAt,
