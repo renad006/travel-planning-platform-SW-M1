@@ -28,8 +28,15 @@ import {
 } from '../hotel-bookings/schemas/hotel-booking.schema';
 import { Hotel, HotelDocument } from '../hotels/schemas/hotel.schema';
 import { NotificationsService } from '../notifications/notifications.service';
-import { BookingType } from '../payments/enums/payment.enums';
+import {
+  BookingType,
+  PaymentStatus,
+  RefundStatus,
+} from '../payments/enums/payment.enums';
+import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
+import { Refund, RefundDocument } from '../payments/schemas/refund.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { AdminAnalyticsQueryDto } from './dto/admin-analytics-query.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { ListAdminBookingsDto } from './dto/list-admin-bookings.dto';
 
@@ -86,6 +93,10 @@ export class AdminManagementService {
     private readonly flightBookingModel: Model<FlightBookingDocument>,
     @InjectModel(HotelBooking.name)
     private readonly hotelBookingModel: Model<HotelBookingDocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(Refund.name)
+    private readonly refundModel: Model<RefundDocument>,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
   ) {}
@@ -330,5 +341,112 @@ export class AdminManagementService {
       .slice(getSkip(query), getSkip(query) + query.limit);
 
     return buildPaginatedResponse(rows, flightTotal + hotelTotal, query);
+  }
+
+  // BON-01 (Bonus): bookings and revenue per provider over a period
+  async getAnalytics(query: AdminAnalyticsQueryDto) {
+    const dateFilter: Record<string, unknown> = {};
+    if (query.from || query.to) {
+      dateFilter.createdAt = {
+        ...(query.from ? { $gte: new Date(query.from) } : {}),
+        ...(query.to ? { $lte: new Date(query.to) } : {}),
+      };
+    }
+
+    const [revenueRows, refundRows] = await Promise.all([
+      this.paymentModel.aggregate([
+        { $match: { status: PaymentStatus.SUCCEEDED, ...dateFilter } },
+        {
+          $group: {
+            _id: { providerId: '$providerId', bookingType: '$bookingType' },
+            bookingsCount: { $sum: 1 },
+            grossRevenue: { $sum: '$amount' },
+          },
+        },
+      ]),
+      this.refundModel.aggregate([
+        { $match: { status: RefundStatus.REFUNDED, ...dateFilter } },
+        {
+          $lookup: {
+            from: 'payments',
+            localField: 'paymentId',
+            foreignField: '_id',
+            as: 'payment',
+          },
+        },
+        { $unwind: '$payment' },
+        {
+          $group: {
+            _id: {
+              providerId: '$payment.providerId',
+              bookingType: '$payment.bookingType',
+            },
+            refundedAmount: { $sum: '$amount' },
+          },
+        },
+      ]),
+    ]);
+
+    const key = (providerId: Types.ObjectId, bookingType: string) =>
+      `${providerId.toString()}_${bookingType}`;
+
+    const merged = new Map<
+      string,
+      {
+        providerId: Types.ObjectId;
+        bookingType: BookingType;
+        bookingsCount: number;
+        grossRevenue: number;
+        refundedAmount: number;
+      }
+    >();
+
+    for (const row of revenueRows) {
+      merged.set(key(row._id.providerId, row._id.bookingType), {
+        providerId: row._id.providerId,
+        bookingType: row._id.bookingType,
+        bookingsCount: row.bookingsCount,
+        grossRevenue: row.grossRevenue,
+        refundedAmount: 0,
+      });
+    }
+    for (const row of refundRows) {
+      const k = key(row._id.providerId, row._id.bookingType);
+      const existing = merged.get(k);
+      if (existing) {
+        existing.refundedAmount = row.refundedAmount;
+      } else {
+        merged.set(k, {
+          providerId: row._id.providerId,
+          bookingType: row._id.bookingType,
+          bookingsCount: 0,
+          grossRevenue: 0,
+          refundedAmount: row.refundedAmount,
+        });
+      }
+    }
+
+    const results = await Promise.all(
+      Array.from(merged.values()).map(async (row) => {
+        // Branch explicitly instead of sharing a `model` variable:
+        // TS can't call .findById on a union of two Mongoose Model types.
+        const provider =
+          row.bookingType === BookingType.FLIGHT
+            ? await this.airlineModel.findById(row.providerId).select('name').exec()
+            : await this.hotelModel.findById(row.providerId).select('name').exec();
+        return {
+          providerId: String(row.providerId),
+          providerType: row.bookingType,
+          providerName: provider?.name ?? 'Unknown',
+          bookingsCount: row.bookingsCount,
+          grossRevenue: row.grossRevenue,
+          refundedAmount: row.refundedAmount,
+          netRevenue: Math.round((row.grossRevenue - row.refundedAmount) * 100) / 100,
+        };
+      }),
+    );
+
+    results.sort((a, b) => b.netRevenue - a.netRevenue);
+    return results;
   }
 }

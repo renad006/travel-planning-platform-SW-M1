@@ -4,6 +4,8 @@ import { FlightBooking, FlightBookingSchema } from '../flight-bookings/schemas/f
 import { Airline, AirlineSchema } from '../flights/schemas/airline.schema';
 import { HotelBooking, HotelBookingSchema } from '../hotel-bookings/schemas/hotel-booking.schema';
 import { Hotel, HotelSchema } from '../hotels/schemas/hotel.schema';
+import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
+import { Refund, RefundSchema } from '../payments/schemas/refund.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { UsersModule } from '../users/users.module';
 import { AdminController } from './admin.controller';
@@ -20,6 +22,8 @@ import { AdminService } from './admin.service';
       { name: User.name, schema: UserSchema },
       { name: FlightBooking.name, schema: FlightBookingSchema },
       { name: HotelBooking.name, schema: HotelBookingSchema },
+      { name: Payment.name, schema: PaymentSchema },
+      { name: Refund.name, schema: RefundSchema },
     ]),
   ],
   controllers: [AdminController, AdminManagementController],

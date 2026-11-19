@@ -759,9 +759,38 @@ Student: Malak Haytham
 Tool: Claude
 Related Requirement: HTL-26 (Bonus)
 Prompt:
-Implement the HTL-26 bonus requirement: hotel moderator replies to a review. Needs an optional reply field on the Review schema, a POST /api/reviews/:id/reply endpoint restricted to the review's own hotel moderator, reusing the same ownership rule as the existing ProviderScopeGuard.
+Implement the HTL-26 bonus requirement: hotel moderator replies to a review. Needs an 
+optional reply field on the Review schema, a POST /api/reviews/:id/reply endpoint 
+restricted to the review's own hotel moderator, reusing the same ownership rule as 
+the existing ProviderScopeGuard.
 How the output was used:
-Added the reply field to the Review schema, a ReplyReviewDto, a ReviewsService.reply() method that checks the moderator's assignedProviderId against the review's hotelId (same pattern as ProviderScopeGuard), and the controller endpoint. Tested end-to-end: correct moderator can reply, a different hotel's moderator gets a 403.
+Added the reply field to the Review schema, a ReplyReviewDto, a ReviewsService.reply() 
+method that checks the moderator's assignedProviderId against the review's hotelId 
+(same pattern as ProviderScopeGuard), and the controller endpoint. 
+Tested end-to-end: correct moderator can reply, a different hotel's moderator gets a 403.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: BON-01 (Bonus) - Admin analytics: bookings and revenue per provider 
+over a period
+Prompt: Design and implement an admin analytics endpoint that groups bookings and revenue 
+by provider (airline or hotel) over an optional date range, where revenue is succeeded 
+payments minus refunds issued in the same period, using the existing Payment and Refund 
+schemas.
+How the output was used: Used the suggested approach - two MongoDB aggregation pipelines 
+(one grouping succeeded Payments by providerId/bookingType, one grouping REFUNDED Refunds 
+via a $lookup join to payments since Refund has no direct providerId field), 
+merged by provider+bookingType, with provider display names resolved from 
+the Airline/Hotel collections. Implemented as AdminAnalyticsQueryDto, 
+AdminManagementService.getAnalytics(), and GET /api/admin/analytics. 
+Fixed a TypeScript union-type error on Model.findById by branching into separate 
+airlineModel/hotelModel calls instead of a shared model variable. 
+Fully tested via Swagger: verified grossRevenue/bookingsCount against raw payment documents 
+in MongoDB Compass (4 succeeded payments out of 6 total, correctly excluding pending 
+and cancelled), and verified the from/to date filter narrows results correctly against known 
+timestamps.
 ================================================
 ================================================
 ================================================
