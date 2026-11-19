@@ -39,6 +39,16 @@ export class Review {
 
   @Prop({ type: String, trim: true, maxlength: 1000 })
   text?: string;
+
+  // HTL-26 (Bonus): the hotel's own moderator may reply once
+  @Prop({
+    type: {
+      text: { type: String, trim: true, maxlength: 1000 },
+      repliedAt: { type: Date },
+    },
+    _id: false,
+  })
+  reply?: { text: string; repliedAt: Date };
 }
 
 export const ReviewSchema = SchemaFactory.createForClass(Review);
