@@ -1141,3 +1141,13 @@ Help me add the bonus endpoint to attach an itinerary to a post. Also, fix the G
 How the output was used:
 Added itineraryId to the Post schema and injected the Itinerary model to verify ownership. Created an OptionalAuthGuard that catches JWT errors and returns null instead of 401, applied it to GET /api/posts/:id. Verified both features in Swagger.
 ================================================================================
+================================================================================
+Date: 2026-11-19
+Student: Nourhan
+Tool: Claude
+Related Requirement: ITN-09
+Prompt:
+Integrate Member 3's ItineraryBudgetService to calculate group budget subtotals for consecutive days in the same city. Also enforce currency validation on activity costs to prevent "UNSPECIFIED" currency errors.
+How the output was used:
+Imported ItineraryBudgetModule into ItinerariesModule, injected ItineraryBudgetService into ItinerariesService, and replaced calculateDates with calculateDaysWithSubtotals. Added @ValidateIf to CreateActivityDto. Tested in Swagger: 400 without currency, 201 with currency, and GET itinerary returns groupDayCount and groupBudgetSubtotal from Member 3's service.
+================================================================================
