@@ -69,6 +69,16 @@ export class AdminService {
       },
     });
 
+    // GEN-01-B: email the new moderator their invite. No other channel exists
+    // yet to hand them the temporary password, so it goes in the message body.
+    await this.notificationsService.notify({
+      userId: user.id,
+      type: 'MODERATOR_INVITED',
+      title: 'Your moderator account was created',
+      message: `You've been added as a ${providerType} moderator for this provider. Log in with ${dto.email} and the temporary password ${temporaryPassword}, then change it immediately.`,
+      related: { type: providerType, id: dto.providerId },
+    });
+
     // The temporary password is returned once and never stored in plain text.
     return { user: user.toJSON(), temporaryPassword };
   }
