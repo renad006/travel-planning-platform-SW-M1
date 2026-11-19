@@ -793,6 +793,27 @@ and cancelled), and verified the from/to date filter narrows results correctly a
 timestamps.
 ================================================
 ================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: GEN-01-B (Bonus) - Email the GEN-01 notification set plus moderator 
+invitations via SMTP
+Prompt: GEN-01-B was already largely implemented by Member 1 
+(NotificationsService.emailCopies() sends an email copy of every in-app notification 
+via MailService/SMTP). Check whether the remaining "moderator invitations" clause of 
+GEN-01-B is covered, and if not, wire it in.
+How the output was used: Found that AdminService.createModerator() (ACC-13) returned 
+the temporary password in the API response only, with no notification sent to the new 
+moderator - the one gap in GEN-01-B's coverage. Added a notificationsService.notify() 
+call after moderator creation with a MODERATOR_INVITED notification containing the login 
+email and temporary password, since no other channel exists yet to hand the new moderator 
+their credentials. This automatically also sends the email copy through the existing 
+emailCopies() hook. Tested via Swagger: created a moderator, confirmed the Ethereal SMTP 
+email was sent (preview link in server logs), then logged in as the moderator, changed the 
+temporary password, and confirmed the MODERATOR_INVITED notification appears 
+via GET /api/notifications.
+================================================
+================================================
 ================================================
 Date: 2026-11-06
 Student: Malak Elsadek
