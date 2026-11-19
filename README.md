@@ -45,6 +45,17 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Bonus, forgot password by email** (ACC-07): `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`. The emailed token is single use, expires after 30 minutes, and only its hash is stored.
 - **Bonus, email notifications** (GEN-01-B): every in-app notification also sends an email copy. Email problems never break the action that triggered the notification.
 
+## Itineraries & Integration (Member 6)
+
+- **Itinerary CRUD** (`/api/itineraries`): Create, list, edit, and delete itineraries (ITN-01, ITN-03). Private by default. Enforces strict ownership (non-owners get 404).
+- **Days Management** (`/api/itineraries/:id/days`): Add days (max 60), edit city/notes, delete days (auto-renumbers), and reorder days (ITN-05, 07, 08). Calendar dates are automatically calculated based on the itinerary start date.
+- **Budget Subtotals** (ITN-09): Calculates `groupDayCount` and `groupBudgetSubtotal` for consecutive days in the same city using Member 3's `ItineraryBudgetService`.
+- **Activities** (`/api/itineraries/:id/days/:dayId/activities`): Add, edit, and delete activities with optional costs (ITN-10). Requires a currency if a cost is provided.
+- **Images** (`/api/itineraries/:id/days/:dayId/activities/:activityId/images`): Upload and remove JPG/PNG images for activities (ITN-12, GEN-08).
+- **Integration Search**:
+  - `GET /api/itineraries/:id/flights`: Search flights from the city of Day 1, including round-trip default dates (ITN-26).
+  - `GET /api/itineraries/:id/hotels`: Search hotels for a specific contiguous city group's dates (ITN-25).
+- **Admin Moderation**: Includes the `isHidden` boolean field (default false) on the schema for Member 7's admin dashboard (GEN-10).
 
 
 ## Blog and Community (Member 7)
