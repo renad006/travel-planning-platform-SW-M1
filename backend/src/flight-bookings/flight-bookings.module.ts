@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FlightsModule } from '../flights/flights.module';
 import { PAYABLE_FLIGHT_BOOKINGS } from '../payments/payable-booking.interface';
+import { FlightChangesController } from './changes/flight-changes.controller';
+import { FlightChangesService } from './changes/flight-changes.service';
 import { FlightBookingsController } from './flight-bookings.controller';
 import { FlightBookingsListener } from './flight-bookings.listener';
 import { FlightBookingsService } from './flight-bookings.service';
@@ -15,7 +17,8 @@ import {
 } from './schemas/flight-booking.schema';
 
 /**
- * Member 3: flight bookings (FLT-19 to FLT-26) and seat selection (FLT-28, bonus).
+ * Member 3: flight bookings (FLT-19 to FLT-26), seat selection (FLT-28, bonus) and changing a
+ * flight (FLT-27, bonus).
  *
  * FlightsModule (Member 2) provides the seat inventory API and exports the Flight / Airline /
  * CabinInventory models. NotificationsModule and ReferenceDataModule (Member 1) are global.
@@ -32,13 +35,14 @@ import {
     ]),
     FlightsModule,
   ],
-  controllers: [FlightBookingsController, FlightSeatsController],
+  controllers: [FlightBookingsController, FlightSeatsController, FlightChangesController],
   providers: [
     FlightBookingsService,
     FlightBookingsTasks,
     { provide: PAYABLE_FLIGHT_BOOKINGS, useExisting: FlightBookingsService },
     FlightBookingsListener,
     FlightSeatsService, // FLT-28
+    FlightChangesService, // FLT-27
   ],
   exports: [FlightBookingsService, PAYABLE_FLIGHT_BOOKINGS, MongooseModule],
 })
