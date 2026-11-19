@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { HotelBookingsService } from '../hotel-bookings/hotel-bookings.service';
+import { FlightBookingsService } from '../flight-bookings/flight-bookings.service';
 import { LinkBookingDto } from './dto/link-booking.dto';
 import { Itinerary, ItineraryDocument, ItineraryDay, Activity } from './schemas/itinerary.schema';
 import { CreateItineraryDto } from './dto/create-itinerary.dto';
@@ -30,6 +31,7 @@ export class ItinerariesService {
     private readonly flightsService: FlightsService,
     private readonly hotelsService: HotelsService,
     private readonly hotelBookingsService: HotelBookingsService,
+    private readonly flightBookingsService: FlightBookingsService,
     private readonly budgetService: ItineraryBudgetService,
   ) {}
   // --- Phase 1: Itinerary CRUD ---
@@ -294,14 +296,53 @@ export class ItinerariesService {
     return this.hotelsService.search(searchDto);
   }
 
-  // --- ITN-27: link a booked hotel to a day, feeding the budget ---
-  // shortcut: the whole stay total goes on the linked day, not spread across the nights
+  // --- ITN-27: link a booked hotel or flight to a day, feeding the budget ---
+  // shortcut: the whole stay/trip total goes on the linked day, not spread across nights/legs
   async linkBooking(userId: string, itineraryId: string, dayId: string, dto: LinkBookingDto) {
     const doc = await this.getOwnedDoc(userId, itineraryId);
     const day = doc.days.find((d) => d._id.toString() === dayId);
     if (!day) throw new NotFoundException('Day not found');
 
-    // someone else's or an unknown reservation is a 404 (HotelBookingsService does that)
+    if (dto.type === 'flight') {
+      // --- ITN-27 (Bonus add-on): link one of my confirmed flight bookings ---
+      const booking = await this.flightBookingsService.get(userId, dto.bookingId);
+      if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.COMPLETED) {
+        throw new ConflictException('Only a Confirmed or Completed flight booking can be linked');
+      }
+      const sortedSegments = [...booking.segments].sort(
+        (a, b) => new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime(),
+      );
+      const tripStart = new Date(sortedSegments[0].departureTime).getTime();
+      const tripEnd = new Date(sortedSegments[sortedSegments.length - 1].arrivalTime).getTime();
+      const dayStart =
+        new Date(doc.startDate).getTime() + (day.dayNumber - 1) * 24 * 60 * 60 * 1000;
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+      // overlap check: the flight falls within this day's 24h window, not just at its midnight instant
+      if (tripEnd <= dayStart || tripStart >= dayEnd) {
+        throw new BadRequestException(
+          `Flight booking ${booking.reference ?? booking.id} does not cover this day`,
+        );
+      }
+      const alreadyLinked = doc.days.some((d) =>
+        d.budgetEntries.some((e) => e.bookingId?.toString() === dto.bookingId),
+      );
+      if (alreadyLinked) {
+        throw new ConflictException('This reservation is already linked in this itinerary');
+      }
+
+      day.budgetEntries.push({
+        category: 'intercity-transport',
+        amount: booking.pricing.totalPrice,
+        currency: booking.pricing.currency,
+        bookingId: new Types.ObjectId(dto.bookingId),
+        bookingType: 'flight',
+      } as never);
+      await doc.save();
+      return this.toDetail(doc);
+    }
+
+    // --- ITN-27: link a booked hotel to a day, feeding the budget (unchanged) ---
+    // shortcut: the whole stay total goes on the linked day, not spread across the nights
     const booking = await this.hotelBookingsService.findForItinerary(userId, dto.bookingId);
     if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.COMPLETED) {
       throw new ConflictException('Only a Confirmed or Completed reservation can be linked');
