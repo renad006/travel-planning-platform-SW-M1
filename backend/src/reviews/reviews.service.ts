@@ -1,12 +1,21 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BookingStatus } from '../common/enums/booking-status.enum';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { buildPaginatedResponse, getSkip } from '../common/utils/pagination.helper';
+import { ProviderType } from '../common/enums/provider-type.enum';
+import { Role } from '../common/enums/role.enum';
 import { HotelBooking, HotelBookingDocument } from '../hotel-bookings/schemas/hotel-booking.schema';
 import { Hotel, HotelDocument } from '../hotels/schemas/hotel.schema';
+import type { UserDocument } from '../users/schemas/user.schema';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { ReplyReviewDto } from './dto/reply-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Review, ReviewDocument } from './schemas/review.schema';
 
@@ -97,6 +106,31 @@ export class ReviewsService {
       ratingCount: hotel.ratingCount,
       reviews: buildPaginatedResponse(items, total, query),
     };
+  }
+
+  // HTL-26 (Bonus): the hotel's own moderator replies to a review
+  async reply(moderator: UserDocument, reviewId: string, dto: ReplyReviewDto) {
+    const review = await this.reviewModel.findById(reviewId).exec();
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    const allowed =
+      moderator.role === Role.ADMIN ||
+      (moderator.role === Role.HOTEL_MODERATOR &&
+        moderator.assignedProviderType === ProviderType.HOTEL &&
+        !!moderator.assignedProviderId &&
+        moderator.assignedProviderId.toString() === review.hotelId.toString());
+
+    if (!allowed) {
+      throw new ForbiddenException(
+        'You can only manage your own assigned provider',
+      );
+    }
+
+    review.reply = { text: dto.text, repliedAt: new Date() };
+    await review.save();
+    return review;
   }
 
   private async recalcHotelRating(hotelId: Types.ObjectId | string) {
