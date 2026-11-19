@@ -24,6 +24,7 @@ import { ProviderType } from '../common/enums/provider-type.enum';
 import { Role } from '../common/enums/role.enum';
 import type { UserDocument } from '../users/schemas/user.schema';
 import { AdminManagementService } from './admin-management.service';
+import { AdminAnalyticsQueryDto } from './dto/admin-analytics-query.dto';
 import { ListAccountsDto } from './dto/list-accounts.dto';
 import { ListAdminBookingsDto } from './dto/list-admin-bookings.dto';
 
@@ -112,5 +113,19 @@ export class AdminManagementController {
   @ApiOkResponse({ description: 'Paginated bookings (ACC-17)' })
   listBookings(@Query() query: ListAdminBookingsDto) {
     return this.management.listBookings(query);
+  }
+
+  @Get('analytics')
+  @ApiOperation({
+    summary: 'BON-01 (Bonus): bookings and revenue per provider over a period',
+    description:
+      'Grouped by provider (airline or hotel). Revenue is succeeded payments minus refunds issued in the same period. Omit from/to for all-time.',
+  })
+  @ApiOkResponse({
+    description:
+      'Per-provider booking count and revenue (gross, refunded, net), sorted by net revenue descending',
+  })
+  getAnalytics(@Query() query: AdminAnalyticsQueryDto) {
+    return this.management.getAnalytics(query);
   }
 }
