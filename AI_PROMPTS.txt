@@ -641,7 +641,17 @@ Prompt:
 Implement the read-only part of FLT-27: list the flights a user can switch a Confirmed booking to (same airline, route and cabin, enough seats, round-trip order respected, passenger types and bag weight still valid).
 How the output was used:
 change-rules.ts (pure rules + tests), flight-changes.service/controller, DTO.
-Checked: unit tests, Swagger tests, nothing changed in the database.
+================================================
+
+================================================
+Date: 2026-11-19
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-27 (same price or cheaper)
+Prompt: 
+Implement PATCH /flight-bookings/:id/change-flight for a Confirmed booking: same airline, route and cabin; same price or cheaper only; update the booking totals and history, move the seats between the two flights, clear the FLT-28 seats of the old flight, tell Payments about the refund through an event, and notify the user.
+How the output was used:
+flight-changes service and controller, ChangeFlightDto, booking change history, fare-reduced event.
 ================================================
 
 ================================================================================

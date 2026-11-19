@@ -59,6 +59,44 @@ export const FlightSegmentSchema = SchemaFactory.createForClass(FlightSegment);
 
 
 
+/** FLT-27: one change of a flight, kept as history on the booking. */
+@Schema({ _id: false })
+export class FlightChangeRecord {
+  @Prop({ type: Date, required: true })
+  at: Date;
+
+  @Prop({ type: String, enum: Object.values(SegmentDirection), required: true })
+  direction: SegmentDirection;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Flight', required: true })
+  fromFlightId: Types.ObjectId;
+
+  @Prop({ type: String, required: true })
+  fromFlightNumber: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Flight', required: true })
+  toFlightId: Types.ObjectId;
+
+  @Prop({ type: String, required: true })
+  toFlightNumber: string;
+
+  /** Fare of that flight before and after the change (whole booking, without baggage). */
+  @Prop({ type: Number, required: true, min: 0 })
+  oldFare: number;
+
+  @Prop({ type: Number, required: true, min: 0 })
+  newFare: number;
+
+  /** 'refund' = the new flight is cheaper, 'none' = same price. */
+  @Prop({ type: String, enum: ['refund', 'none'], required: true })
+  fareDirection: 'refund' | 'none';
+
+  /** Amount that has to go back to the user (0 when the price is the same). */
+  @Prop({ type: Number, default: 0, min: 0 })
+  refundAmount: number;
+}
+export const FlightChangeRecordSchema = SchemaFactory.createForClass(FlightChangeRecord);
+
 @Schema()
 export class Passenger {
   /** Set by the SERVER from the date of birth, never trusted from the client (FLT-12b). */
@@ -230,6 +268,10 @@ export class FlightBooking {
 
   @Prop({ type: Number, min: 0 })
   refundAmount?: number;
+
+  /** FLT-27: every change of flight (newest last). Empty when the booking was never changed. */
+  @Prop({ type: [FlightChangeRecordSchema], default: [] })
+  changes: FlightChangeRecord[];
 
   /** Member 5's Refund document (status Pending / Refunded / Failed lives there). */
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Refund' })

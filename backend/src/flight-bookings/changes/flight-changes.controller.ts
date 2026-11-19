@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -13,6 +13,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import type { UserDocument } from '../../users/schemas/user.schema';
 import { SegmentDirection } from '../schemas/flight-booking.enums';
+import { ChangeFlightDto } from './dto/change-flight.dto';
 import { ChangeOptionsQueryDto } from './dto/change-options-query.dto';
 import { FlightChangesService } from './flight-changes.service';
 
@@ -47,5 +48,33 @@ export class FlightChangesController {
       query.segment ?? SegmentDirection.OUTBOUND,
       query.date,
     );
+  }
+
+  @Patch(':id/change-flight')
+  @ApiOperation({
+    summary: 'FLT-27: change one flight of my Confirmed booking to another flight',
+    description:
+      'Same airline, same route, same cabin, before the flight departs. segment is outbound ' +
+      '(default) or return. Same price: done at once. Cheaper: done at once and the difference is ' +
+      'refunded (event flight-booking.fare-reduced for Payments). A more expensive flight is not ' +
+      'available yet. Seats chosen on the old flight (FLT-28) are cleared; reference and e-ticket ' +
+      'number stay the same. Baggage fees do not change.',
+  })
+  @ApiOkResponse({ description: 'The updated booking' })
+  @ApiBadRequestResponse({
+    description: 'Same flight, another airline or route, or no such flight in this booking',
+  })
+  @ApiNotFoundResponse({ description: 'Booking or flight not found, or not your booking' })
+  @ApiConflictResponse({
+    description:
+      'Not Confirmed, already departed, flight not available, not enough seats, round-trip order ' +
+      'broken, passenger group would change, bag weight too high, or a dearer flight',
+  })
+  change(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Body() dto: ChangeFlightDto,
+  ) {
+    return this.service.changeFlight(String(user._id), id, dto);
   }
 }
