@@ -26,6 +26,7 @@ import { Role } from '../common/enums/role.enum';
 import type { UserDocument } from '../users/schemas/user.schema';
 import { AcceptPolicyDto } from './dto/accept-policy.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { FlightChangePaymentDto } from './dto/flight-change-payment.dto';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('Payments')
@@ -71,6 +72,22 @@ export class PaymentsController {
     @Body() dto: CreatePaymentDto,
   ) {
     return this.paymentsService.createPayment(user.id, dto);
+  }
+
+  @Post('flight-change')
+  @ApiOperation({
+    summary:
+      'FLT-27: create a Stripe PaymentIntent for the price difference of a pending flight change',
+  })
+  @ApiCreatedResponse({ description: 'PaymentIntent created' })
+  @ApiNotFoundResponse({
+    description: 'Booking not found, or no pending change with this id',
+  })
+  createFlightChangePayment(
+    @CurrentUser() user: UserDocument,
+    @Body() dto: FlightChangePaymentDto,
+  ) {
+    return this.paymentsService.createFlightChangePayment(user.id, dto);
   }
 
   @Post(':id/retry')

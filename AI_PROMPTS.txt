@@ -882,7 +882,35 @@ linked to a matching itinerary day (budget correctly showed 250 USD under interc
 a duplicate link attempt returned 409, linking to a day outside the flight's date returned 400, 
 and unlinking correctly removed the budget entry. No existing method or file belonging to Member 4 
 or Member 6 was modified.
-----------------------------------------
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: FLT-27 (Payment integration, Payments module)
+Prompt: Member 3 (Suha) handed off a spec for the payment side of FLT-27 (paying or 
+refunding the fare difference when a confirmed flight booking's flight is changed), 
+scoped entirely within the Payments module (my own PAY-01-04 tasks). Build: a changeId 
+field linking a Payment to a specific flight change, a POST /payments/flight-change 
+endpoint, webhook branching to apply the change after successful payment, and new 
+refund-event handlers for a fare dropping (FARE_REDUCED), a pending paid change being 
+abandoned (CHANGE_EXPIRED), and cancellation needing to split a refund across multiple 
+payments.
+How the output was used: Added Payment.changeId; added 
+createFlightChangePayment()/POST flight-change endpoint; branched 
+retryPayment()/onPaymentSucceeded() on payment.changeId to apply the flight change 
+after payment succeeds, with automatic full refund if applying the change fails; added 
+RefundsService.handleFlightFareReduced() (instant 100% refund, no payment needed) and 
+handleFlightChangeExpired() (cancels the Stripe PaymentIntent); rewrote 
+handleFlightCancelled() to iterate [...extraPaymentIds, paymentId] newest-first, 
+refunding each payment up to its own remaining (unrefunded) amount until the total 
+owed is exhausted. Reused the existing PAYABLE_FLIGHT_CHANGES injection token and 
+event-emitter pattern already in place, so no changes were needed to PaymentsModule's 
+wiring. Built with 0 TypeScript errors; tested live end-to-end against real Stripe 
+test-mode PaymentIntents/Refunds via the actual webhook (not simulated): a "pay" 
+change ($50 difference) completed and applied correctly; a "refund" change ($100 fare 
+drop) applied instantly
+================================================
 ================================================
 Date: 2026-11-06
 Student: Malak Elsadek

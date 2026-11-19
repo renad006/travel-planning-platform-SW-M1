@@ -31,6 +31,10 @@ export class Payment {
 
   @Prop({ type: String, enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
+
+  // FLT-27: set only for a payment of a flight-change price difference
+  @Prop({ type: Types.ObjectId, index: true })
+  changeId?: Types.ObjectId;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

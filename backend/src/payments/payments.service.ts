@@ -19,6 +19,8 @@ import {
   PAYABLE_HOTEL_BOOKINGS,
 } from './payable-booking.interface';
 import type { PayableBookingService } from './payable-booking.interface';
+import { PAYABLE_FLIGHT_CHANGES } from '../flight-bookings/changes/payable-change.interface';
+import type { PayableFlightChangeService } from '../flight-bookings/changes/payable-change.interface';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 import {
   PolicyAcceptance,
@@ -29,6 +31,8 @@ import {
   ProcessedStripeEventDocument,
 } from './schemas/processed-stripe-event.schema';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { FlightChangePaymentDto } from './dto/flight-change-payment.dto';
+import { RefundsService } from './refunds.service';
 
 @Injectable()
 export class PaymentsService {
@@ -46,8 +50,11 @@ export class PaymentsService {
     private readonly flightBookings: PayableBookingService,
     @Inject(PAYABLE_HOTEL_BOOKINGS)
     private readonly hotelBookings: PayableBookingService,
+    @Inject(PAYABLE_FLIGHT_CHANGES)
+    private readonly flightChanges: PayableFlightChangeService,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
+    private readonly refunds: RefundsService,
   ) {
     const secretKey = this.config.get<string>('stripe.secretKey');
     if (secretKey) {
@@ -158,6 +165,52 @@ export class PaymentsService {
     return { paymentId: payment.id, clientSecret: intent.client_secret };
   }
 
+  // FLT-27 / PAY-01: create a PaymentIntent for the price difference of a pending flight change
+  async createFlightChangePayment(userId: string, dto: FlightChangePaymentDto) {
+    const stripe = this.requireStripe();
+    const change = await this.flightChanges.findPayableChange(
+      dto.bookingId,
+      dto.changeId,
+    );
+
+    if (change.ownerId !== userId) {
+      throw new NotFoundException('Booking not found');
+    }
+    // no assertPayable / no policiesAcceptedAt check: policies were already accepted on the
+    // original booking and the booking stays Confirmed throughout a change
+
+    const currency = this.config.get<string>('defaultCurrency') ?? 'USD';
+
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount: Math.round(change.amount * 100),
+        currency: currency.toLowerCase(),
+        metadata: {
+          bookingType: BookingType.FLIGHT,
+          bookingId: dto.bookingId,
+          changeId: dto.changeId,
+        },
+      },
+      {
+        idempotencyKey: `payment-flight-change-${dto.bookingId}-${dto.changeId}`,
+      },
+    );
+
+    const payment = await this.paymentModel.create({
+      bookingType: BookingType.FLIGHT,
+      bookingId: dto.bookingId,
+      userId,
+      providerId: change.providerId,
+      stripePaymentIntentId: intent.id,
+      amount: change.amount,
+      currency,
+      changeId: dto.changeId,
+      status: PaymentStatus.PENDING,
+    });
+
+    return { paymentId: payment.id, clientSecret: intent.client_secret };
+  }
+
   // PAY-01: retry with a new PaymentIntent before the hold expires
   async retryPayment(userId: string, paymentId: string) {
     const stripe = this.requireStripe();
@@ -166,11 +219,26 @@ export class PaymentsService {
       throw new NotFoundException('Payment not found');
     }
 
-    const bookingService = this.bookingServiceFor(payment.bookingType);
-    const booking = await bookingService.findPayable(
-      payment.bookingId.toString(),
-    );
-    this.assertPayable(booking.status, booking.holdExpiresAt);
+    let amount: number;
+    let providerId: string;
+
+    if (payment.changeId) {
+      // FLT-27: this payment was for a flight-change price difference
+      const change = await this.flightChanges.findPayableChange(
+        payment.bookingId.toString(),
+        payment.changeId.toString(),
+      );
+      amount = change.amount;
+      providerId = change.providerId;
+    } else {
+      const bookingService = this.bookingServiceFor(payment.bookingType);
+      const booking = await bookingService.findPayable(
+        payment.bookingId.toString(),
+      );
+      this.assertPayable(booking.status, booking.holdExpiresAt);
+      amount = booking.amount;
+      providerId = booking.providerId;
+    }
 
     if (payment.status === PaymentStatus.PENDING) {
       try {
@@ -186,15 +254,18 @@ export class PaymentsService {
 
     const intent = await stripe.paymentIntents.create(
       {
-        amount: Math.round(booking.amount * 100),
+        amount: Math.round(amount * 100),
         currency: payment.currency.toLowerCase(),
         metadata: {
           bookingType: payment.bookingType,
           bookingId: payment.bookingId.toString(),
+          ...(payment.changeId ? { changeId: payment.changeId.toString() } : {}),
         },
       },
       {
-        idempotencyKey: `payment-retry-${payment.bookingType}-${payment.bookingId}-${Date.now()}`,
+        idempotencyKey: payment.changeId
+          ? `payment-retry-flight-change-${payment.bookingId}-${payment.changeId}-${Date.now()}`
+          : `payment-retry-${payment.bookingType}-${payment.bookingId}-${Date.now()}`,
       },
     );
 
@@ -202,10 +273,11 @@ export class PaymentsService {
       bookingType: payment.bookingType,
       bookingId: payment.bookingId,
       userId,
-      providerId: booking.providerId,
+      providerId,
       stripePaymentIntentId: intent.id,
-      amount: booking.amount,
+      amount,
       currency: payment.currency,
+      changeId: payment.changeId,
       status: PaymentStatus.PENDING,
     });
 
@@ -296,11 +368,40 @@ export class PaymentsService {
     payment.status = PaymentStatus.SUCCEEDED;
     await payment.save();
 
+    if (payment.changeId) {
+      // FLT-27: this payment was for a flight-change price difference
+      const applied = await this.flightChanges.confirmChangeAfterPayment(
+        payment.bookingId.toString(),
+        payment.changeId.toString(),
+        payment.id,
+      );
+      if (!applied) {
+        await this.refunds.refundEntirePayment(
+          payment,
+          BookingType.FLIGHT,
+          payment.bookingId.toString(),
+          'Flight change could not be applied',
+        );
+      }
+      return;
+    }
+
     const bookingService = this.bookingServiceFor(payment.bookingType);
-    await bookingService.confirmAfterPayment(
+    const confirmed = await bookingService.confirmAfterPayment(
       payment.bookingId.toString(),
       payment.id,
     );
+    if (!confirmed) {
+      // the interface contract says to refund 100% when confirmation no longer applies
+      // (expired hold, already cancelled, etc.) — previously this return value was ignored
+      await this.refunds.refundEntirePayment(
+        payment,
+        payment.bookingType,
+        payment.bookingId.toString(),
+        'Booking could no longer be confirmed',
+      );
+      return;
+    }
 
     await this.notifications.notify({
       userId: payment.userId.toString(),
@@ -339,7 +440,3 @@ export class PaymentsService {
     await payment.save();
   }
 }
-
-
-
-
