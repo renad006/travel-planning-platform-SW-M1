@@ -9,7 +9,25 @@ export const FLIGHT_BOOKING_EVENTS = {
   CANCELLED: 'flight-booking.cancelled',
   /** FLT-22: a Pending Payment hold expired. Member 5 cancels the Stripe PaymentIntent (PAY-01). */
   EXPIRED: 'flight-booking.expired',
+  /**
+   * FLT-27: the user moved to a CHEAPER flight. The booking total already went down; Member 5
+   * refunds `amount` (the whole difference, no cancellation tier) to the original payment.
+   */
+  FARE_REDUCED: 'flight-booking.fare-reduced',
 } as const;
+
+export interface FlightBookingFareReducedEvent {
+  bookingId: string;
+  userId: string;
+  reference: string;
+  /** Payment document (Member 5) the difference goes back to. */
+  paymentId?: string;
+  /** Amount to refund (the price difference), already in the platform currency. */
+  amount: number;
+  currency: string;
+  /** Time of the change. */
+  changedAt: Date;
+}
 
 export interface FlightBookingCancelledEvent {
   bookingId: string;
