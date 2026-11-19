@@ -1,10 +1,11 @@
 import { 
-  Body, Controller, Delete, Get, Param, Patch, Post, Query,
+  Body, Controller, Delete, Get, Param, Patch, Post, Query, Res,
   BadRequestException, UploadedFile, UseInterceptors 
 } from '@nestjs/common';
 import { 
   ApiBadRequestResponse, ApiCookieAuth, ApiCreatedResponse, ApiNotFoundResponse, 
-  ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse, ApiBody, ApiConsumes 
+  ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse, ApiBody, ApiConsumes,
+  ApiProduces
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
@@ -12,6 +13,7 @@ import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
 import { diskStorage } from 'multer';
 import { join } from 'path';
+import type { Response } from 'express';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { UserDocument } from '../users/schemas/user.schema';
@@ -26,6 +28,7 @@ import { UpdateActivityDto } from './dto/update-activity.dto';
 import { SearchItineraryFlightsDto } from './dto/search-itinerary-flights.dto';
 import { SearchItineraryHotelsDto } from './dto/search-itinerary-hotels.dto';
 import { LinkBookingDto } from './dto/link-booking.dto';
+import { renderItineraryPdf, ItineraryPdfView } from './itineraries.pdf';
 
 // 1. Setup the upload options FIRST
 const ACTIVITY_IMG_DIR = join(process.cwd(), 'uploads', 'activities');
@@ -240,5 +243,30 @@ export class ItinerariesController {
     @Param('bookingId') bookingId: string,
   ) {
     return this.service.unlinkBooking(user._id.toString(), id, dayId, bookingId);
+  }
+
+  // --- ITN-28 (Bonus): export the itinerary as PDF ---
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'ITN-28 (Bonus): download the itinerary as PDF' })
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({ description: 'PDF file' })
+  @ApiNotFoundResponse({ description: 'Not found or not owned by you' })
+  async downloadPdf(
+    @CurrentUser() user: UserDocument,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const detail = (await this.service.findMine(
+      user._id.toString(),
+      id,
+    )) as unknown as ItineraryPdfView;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="itinerary-${detail.id}.pdf"`,
+    );
+    const pdf = renderItineraryPdf(detail);
+    pdf.pipe(res);
+    pdf.end();
   }
 }

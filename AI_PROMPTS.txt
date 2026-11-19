@@ -847,6 +847,42 @@ temporary password, and confirmed the MODERATOR_INVITED notification appears
 via GET /api/notifications.
 ================================================
 ================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ITN-28 (Bonus)
+Prompt: Add an endpoint to export/print an itinerary as a PDF (GET /api/itineraries/:id/pdf), 
+reusing the existing e-ticket PDFKit pattern from flight-bookings, without changing any 
+existing itinerary endpoints or logic owned by another team member.
+How the output was used: Created a new itineraries.pdf.ts renderer (PDFKit document builder 
+covering title, countries, start date, days, activities, transport costs, and budget 
+entries/subtotals) and added a single new downloadPdf endpoint to itineraries.controller.ts. 
+No existing file or method was modified. Built with 0 TypeScript errors and tested live via 
+Swagger against itinerary "Summer in Europe" — downloaded PDF confirmed to render title, 
+countries, start date, duration, and day details correctly.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ITN-27 (Bonus add-on)
+Prompt: ITN-27's hotel-linking half was already built by Member 4, but the flight half 
+(required by the spec's "flights and hotels" wording) was never implemented, with Member 3's 
+flight-booking schema initially pending. With Member 6's explicit permission to add only 
+what's missing without touching her existing logic, add a flight-linking branch to linkBooking() 
+that is fully additive and leaves the hotel path untouched.
+How the output was used: Widened LinkBookingDto.type to accept 'flight', injected 
+FlightBookingsService into ItinerariesService, and added an isolated flight branch in 
+linkBooking() (checks Confirmed/Completed status, overlap of the day with the flight's 
+departure-to-arrival window, duplicate-link rejection, then pushes an intercity-transport budget 
+entry). Also widened the BudgetEntry.category enum to include 'intercity-transport', which 
+ItineraryBudgetService already expected but which no entry could previously use. Built with 0 
+TypeScript errors; tested live via Swagger: a Confirmed one-way flight booking (CAI-DXB) was 
+linked to a matching itinerary day (budget correctly showed 250 USD under intercity-transport), 
+a duplicate link attempt returned 409, linking to a day outside the flight's date returned 400, 
+and unlinking correctly removed the budget entry. No existing method or file belonging to Member 4 
+or Member 6 was modified.
+----------------------------------------
 ================================================
 Date: 2026-11-06
 Student: Malak Elsadek

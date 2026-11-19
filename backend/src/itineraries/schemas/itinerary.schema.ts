@@ -20,9 +20,9 @@ export class BudgetEntry {
   _id: Types.ObjectId;
   @Prop({
     required: true,
-    enum: ['food', 'accommodation', 'in-city-transport', 'activities'],
+    enum: ['food', 'accommodation', 'in-city-transport', 'activities', 'intercity-transport'],
   })
-  category: 'food' | 'accommodation' | 'in-city-transport' | 'activities';
+  category: 'food' | 'accommodation' | 'in-city-transport' | 'activities' | 'intercity-transport';
   @Prop({ required: true, type: Number, min: 0 }) amount: number;
   @Prop({ required: true }) currency: string;
   // ITN-27: set when the entry comes from a booking linked to this day
