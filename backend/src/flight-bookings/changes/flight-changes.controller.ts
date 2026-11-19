@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -56,11 +56,12 @@ export class FlightChangesController {
     description:
       'Same airline, same route, same cabin, before the flight departs. segment is outbound ' +
       '(default) or return. Same price: done at once. Cheaper: done at once and the difference is ' +
-      'refunded (event flight-booking.fare-reduced for Payments). A more expensive flight is not ' +
-      'available yet. Seats chosen on the old flight (FLT-28) are cleared; reference and e-ticket ' +
+      'refunded (event flight-booking.fare-reduced for Payments). A more expensive flight: the ' +
+      'new seats are held for 10 minutes and the response shows `pendingChange` (amountDue, ' +
+      'holdExpiresAt); the booking moves only after the difference is paid. Seats chosen on the old flight (FLT-28) are cleared; reference and e-ticket ' +
       'number stay the same. Baggage fees do not change.',
   })
-  @ApiOkResponse({ description: 'The updated booking' })
+  @ApiOkResponse({ description: 'The updated booking (dearer flight: with pendingChange waiting for payment)' })
   @ApiBadRequestResponse({
     description: 'Same flight, another airline or route, or no such flight in this booking',
   })
@@ -68,7 +69,7 @@ export class FlightChangesController {
   @ApiConflictResponse({
     description:
       'Not Confirmed, already departed, flight not available, not enough seats, round-trip order ' +
-      'broken, passenger group would change, bag weight too high, or a dearer flight',
+      'broken, passenger group would change, bag weight too high, or another change is already waiting for payment',
   })
   change(
     @CurrentUser() user: UserDocument,
@@ -76,5 +77,19 @@ export class FlightChangesController {
     @Body() dto: ChangeFlightDto,
   ) {
     return this.service.changeFlight(String(user._id), id, dto);
+  }
+
+  @Delete(':id/change-flight')
+  @ApiOperation({
+    summary: 'FLT-27: cancel a flight change that is waiting for payment',
+    description:
+      'Only for a change to a more expensive flight that was not paid yet. Its held seats are ' +
+      'released at once. The booking was never moved, so nothing else changes.',
+  })
+  @ApiOkResponse({ description: 'The booking, without pendingChange' })
+  @ApiNotFoundResponse({ description: 'Not found, or not your booking' })
+  @ApiConflictResponse({ description: 'No change is waiting for payment' })
+  cancelPending(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+    return this.service.cancelPendingChange(String(user._id), id);
   }
 }

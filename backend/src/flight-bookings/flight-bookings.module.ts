@@ -4,6 +4,7 @@ import { FlightsModule } from '../flights/flights.module';
 import { PAYABLE_FLIGHT_BOOKINGS } from '../payments/payable-booking.interface';
 import { FlightChangesController } from './changes/flight-changes.controller';
 import { FlightChangesService } from './changes/flight-changes.service';
+import { PAYABLE_FLIGHT_CHANGES } from './changes/payable-change.interface';
 import { FlightBookingsController } from './flight-bookings.controller';
 import { FlightBookingsListener } from './flight-bookings.listener';
 import { FlightBookingsService } from './flight-bookings.service';
@@ -26,6 +27,8 @@ import {
  * Exports the PAYABLE_FLIGHT_BOOKINGS token: the booking contract Member 5's payments module uses
  * (findPayable, confirmAfterPayment, expireHold, markPoliciesAccepted), and FlightBookingsService
  * (hasUpcomingConfirmedBookings for Member 1, ACC-12).
+ * PAYABLE_FLIGHT_CHANGES (changes/payable-change.interface.ts) is the contract for paying the price
+ * difference of a change to a dearer flight (FLT-27).
  */
 @Module({
   imports: [
@@ -43,7 +46,8 @@ import {
     FlightBookingsListener,
     FlightSeatsService, // FLT-28
     FlightChangesService, // FLT-27
+    { provide: PAYABLE_FLIGHT_CHANGES, useExisting: FlightChangesService }, // FLT-27: for Payments
   ],
-  exports: [FlightBookingsService, PAYABLE_FLIGHT_BOOKINGS, MongooseModule],
+  exports: [FlightBookingsService, PAYABLE_FLIGHT_BOOKINGS, PAYABLE_FLIGHT_CHANGES, MongooseModule],
 })
 export class FlightBookingsModule {}

@@ -49,6 +49,7 @@ import {
 import {
   FLIGHT_BOOKING_EVENTS,
   FlightBookingCancelledEvent,
+  FlightBookingChangeExpiredEvent,
   FlightBookingExpiredEvent,
 } from './flight-bookings.events';
 import {
@@ -356,6 +357,7 @@ export class FlightBookingsService implements PayableBookingService {
 
     const record = claimed.toObject() as unknown as BookingRecord;
     await this.releaseBookedSeats(record);
+    await this.releasePendingChange(record);
 
     await this.safeNotify({
       userId,
@@ -662,6 +664,7 @@ export class FlightBookingsService implements PayableBookingService {
       if (!claimed) continue; // the user cancelled at the same moment
       const record = claimed.toObject() as unknown as BookingRecord;
       await this.releaseBookedSeats(record);
+      await this.releasePendingChange(record);
       await this.safeNotify({
         userId: record.userId.toString(),
         type: 'FLIGHT_BOOKING_CANCELLED',
@@ -1197,6 +1200,34 @@ export class FlightBookingsService implements PayableBookingService {
   }
 
   /**
+   * FLT-27: the booking was cancelled while a change to a dearer flight waited for payment: the
+   * held seats of that flight go back and Payments cancels the open payment of the change.
+   */
+  private async releasePendingChange(booking: BookingRecord) {
+    const pending = booking.pendingChange;
+    if (!pending) return;
+    try {
+      await this.flightsService.releaseHeldSeats(
+        pending.toFlightId.toString(),
+        pending.cabinClass,
+        booking.seatCount,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not return the held seats of the unpaid change of booking ${booking._id.toString()}: ` +
+          (error as Error).message,
+      );
+    }
+    const event: FlightBookingChangeExpiredEvent = {
+      bookingId: booking._id.toString(),
+      userId: booking.userId.toString(),
+      changeId: pending.changeId.toString(),
+      reason: 'cancelled',
+    };
+    this.events.emit(FLIGHT_BOOKING_EVENTS.CHANGE_EXPIRED, event);
+  }
+
+  /**
    * Tells Payments to refund (PAY-03). No refund maths here: Payments calculates it from the
    * amount, the cancellation anchor and the tiers (airline cancellations are refunded 100%).
    */
@@ -1206,6 +1237,7 @@ export class FlightBookingsService implements PayableBookingService {
       userId: booking.userId.toString(),
       reference: booking.reference ?? '',
       paymentId: booking.paymentId?.toString(),
+      extraPaymentIds: (booking.extraPaymentIds ?? []).map((p) => p.toString()),
       cancelledBy,
       amount: booking.totalPrice,
       currency: booking.currency,
