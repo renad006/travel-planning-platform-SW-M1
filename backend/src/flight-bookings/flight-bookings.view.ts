@@ -118,6 +118,32 @@ export function toBookingView(
     policies: b.policiesSnapshot ?? null,
     policiesAcceptedAt: b.policiesAcceptedAt ?? null,
     paymentId: b.paymentId?.toString() ?? null,
+    // FLT-27: a change to a dearer flight waiting for the user to pay the difference
+    pendingChange:
+      b.pendingChange && b.pendingChange.holdExpiresAt.getTime() > now
+        ? {
+            changeId: b.pendingChange.changeId.toString(),
+            direction: b.pendingChange.direction,
+            fromFlightNumber: b.pendingChange.fromFlightNumber,
+            toFlightNumber: b.pendingChange.toFlightNumber,
+            amountDue: b.pendingChange.amountDue,
+            currency: b.currency,
+            holdExpiresAt: b.pendingChange.holdExpiresAt,
+            secondsUntilExpiry: Math.max(
+              0,
+              Math.round((b.pendingChange.holdExpiresAt.getTime() - now) / 1000),
+            ),
+          }
+        : null,
+    changes: (b.changes ?? []).map((c) => ({
+      at: c.at,
+      direction: c.direction,
+      fromFlightNumber: c.fromFlightNumber,
+      toFlightNumber: c.toFlightNumber,
+      fareDirection: c.fareDirection,
+      refundAmount: c.refundAmount,
+      amountPaid: c.amountPaid ?? 0,
+    })),
     confirmedAt: b.confirmedAt ?? null,
     cancellation: b.cancelledAt
       ? {

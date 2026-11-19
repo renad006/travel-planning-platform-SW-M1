@@ -87,15 +87,78 @@ export class FlightChangeRecord {
   @Prop({ type: Number, required: true, min: 0 })
   newFare: number;
 
-  /** 'refund' = the new flight is cheaper, 'none' = same price. */
-  @Prop({ type: String, enum: ['refund', 'none'], required: true })
-  fareDirection: 'refund' | 'none';
+  /** 'refund' = the new flight was cheaper, 'none' = same price, 'pay' = dearer (user paid the difference). */
+  @Prop({ type: String, enum: ['refund', 'none', 'pay'], required: true })
+  fareDirection: 'refund' | 'none' | 'pay';
 
-  /** Amount that has to go back to the user (0 when the price is the same). */
+  /** Amount that has to go back to the user (0 unless the new flight was cheaper). */
   @Prop({ type: Number, default: 0, min: 0 })
   refundAmount: number;
+
+  /** Amount the user paid extra (0 unless the new flight was dearer). */
+  @Prop({ type: Number, default: 0, min: 0 })
+  amountPaid: number;
+
+  /** Dearer flights only: the pending change this record came from, and the payment that paid it. */
+  @Prop({ type: MongooseSchema.Types.ObjectId })
+  changeId?: Types.ObjectId;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Payment' })
+  paymentId?: Types.ObjectId;
 }
 export const FlightChangeRecordSchema = SchemaFactory.createForClass(FlightChangeRecord);
+
+/**
+ * FLT-27: a change to a DEARER flight waiting for the user to pay the difference. The new flight's
+ * seats are held for 10 minutes; the booking itself stays on the old flight until the payment
+ * succeeds. At most one per booking.
+ */
+@Schema({ _id: false })
+export class PendingFlightChange {
+  @Prop({ type: MongooseSchema.Types.ObjectId, required: true })
+  changeId: Types.ObjectId;
+
+  @Prop({ type: String, enum: Object.values(SegmentDirection), required: true })
+  direction: SegmentDirection;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Flight', required: true })
+  fromFlightId: Types.ObjectId;
+
+  @Prop({ type: String, required: true })
+  fromFlightNumber: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Flight', required: true })
+  toFlightId: Types.ObjectId;
+
+  @Prop({ type: String, required: true })
+  toFlightNumber: string;
+
+  @Prop({ type: String, enum: Object.values(CabinClass), required: true })
+  cabinClass: CabinClass;
+
+  /** Fare of that flight (whole booking) before and after: the user pays the difference. */
+  @Prop({ type: Number, required: true, min: 0 })
+  oldFare: number;
+
+  @Prop({ type: Number, required: true, min: 0 })
+  newFare: number;
+
+  /** What the user has to pay (newFare - oldFare, in the booking currency). */
+  @Prop({ type: Number, required: true, min: 0.01 })
+  amountDue: number;
+
+  /** Fare per seat of the new flight, locked when the change was started (FLT-05). */
+  @Prop({ type: Number, required: true, min: 0.01 })
+  farePerSeat: number;
+
+  @Prop({ type: Date, required: true })
+  createdAt: Date;
+
+  /** createdAt + 10 minutes. After this the held seats are released and the change is gone. */
+  @Prop({ type: Date, required: true })
+  holdExpiresAt: Date;
+}
+export const PendingFlightChangeSchema = SchemaFactory.createForClass(PendingFlightChange);
 
 @Schema()
 export class Passenger {
@@ -273,6 +336,14 @@ export class FlightBooking {
   @Prop({ type: [FlightChangeRecordSchema], default: [] })
   changes: FlightChangeRecord[];
 
+  /** FLT-27: a change to a dearer flight waiting for payment (see PendingFlightChange). */
+  @Prop({ type: PendingFlightChangeSchema })
+  pendingChange?: PendingFlightChange;
+
+  /** FLT-27: payments of price differences (besides `paymentId`). Needed to refund them on cancel. */
+  @Prop({ type: [MongooseSchema.Types.ObjectId], ref: 'Payment', default: [] })
+  extraPaymentIds: Types.ObjectId[];
+
   /** Member 5's Refund document (status Pending / Refunded / Failed lives there). */
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Refund' })
   refundId?: Types.ObjectId;
@@ -301,6 +372,12 @@ FlightBookingSchema.index({ userId: 1, status: 1, departureTime: -1 });
 FlightBookingSchema.index(
   { holdExpiresAt: 1 },
   { partialFilterExpression: { status: BookingStatus.PENDING_PAYMENT } },
+);
+
+// FLT-27: the job that releases the seats of unpaid flight changes only scans bookings that have one.
+FlightBookingSchema.index(
+  { 'pendingChange.holdExpiresAt': 1 },
+  { partialFilterExpression: { 'pendingChange.holdExpiresAt': { $exists: true } } },
 );
 
 // Moderator view / passenger export (FLT-29) and flight cancellation (FLT-06).

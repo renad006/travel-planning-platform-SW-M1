@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { DateTime } from 'luxon';
 import { Model, Types } from 'mongoose';
@@ -22,15 +23,20 @@ import {
   NotifyInput,
 } from '../../notifications/notifications.service';
 import { Airport, AirportDocument } from '../../reference-data/schemas/airport.schema';
-import { fareCentsFor, fromCents, toCents } from '../flight-bookings.rules';
+import { HOLD_MINUTES, fareCentsFor, fromCents, toCents } from '../flight-bookings.rules';
 import {
   FLIGHT_BOOKING_EVENTS,
+  FlightBookingChangeExpiredEvent,
   FlightBookingFareReducedEvent,
 } from '../flight-bookings.events';
 import { FlightBookingsService } from '../flight-bookings.service';
 import { FlightBooking, FlightBookingDocument } from '../schemas/flight-booking.schema';
 import { SeatAssignment, SeatAssignmentDocument } from '../seats/schemas/seat-assignment.schema';
 import { ChangeFlightDto } from './dto/change-flight.dto';
+import type {
+  PayableFlightChange,
+  PayableFlightChangeService,
+} from './payable-change.interface';
 import { SegmentDirection } from '../schemas/flight-booking.enums';
 import {
   fareDifference,
@@ -56,8 +62,9 @@ type FlightLean = Flight & { _id: Types.ObjectId };
  * before confirming (GEN-03); nothing is changed here.
  */
 @Injectable()
-export class FlightChangesService {
+export class FlightChangesService implements PayableFlightChangeService {
   private readonly logger = new Logger(FlightChangesService.name);
+  private expiring = false;
 
   constructor(
     @InjectModel(FlightBooking.name)
@@ -181,6 +188,412 @@ export class FlightChangesService {
 
 
   /**
+   * The fields that move ONE flight of a booking to another flight: the segment, the totals, the
+   * passenger fares, the outbound departure and the end of the trip. Integer cents everywhere;
+   * baggage never changes.
+   */
+  private switchFields(
+    booking: BookingLean,
+    direction: SegmentDirection,
+    flight: FlightLean,
+    farePerSeat: number,
+    newCents: number,
+  ) {
+    const segment = booking.segments.find((s) => s.direction === direction) as SegmentLean;
+    const paidCents = toCents(segment.fareSubtotal);
+    const segments = booking.segments.map((s) =>
+      s.direction === direction ? { ...s, farePerSeat } : s,
+    );
+    const fareTotalCents = toCents(booking.fareTotal) - paidCents + newCents;
+    const totalCents = fareTotalCents + toCents(booking.baggageTotal ?? 0);
+
+    const passengerFares: Record<string, number> = {};
+    booking.passengers.forEach((p, index) => {
+      const cents = segments.reduce(
+        (sum, s) => sum + fareCentsFor(p.type, toCents(s.farePerSeat)),
+        0,
+      );
+      passengerFares[`passengers.${index}.fare`] = fromCents(cents);
+    });
+
+    // the booking ends with its last flight: only a changed return (or a one-way) moves it
+    const endsAt =
+      direction === SegmentDirection.OUTBOUND && booking.segments.length > 1
+        ? booking.endsAt
+        : flight.arrivalTime;
+
+    return {
+      set: {
+        'segments.$[seg].flightId': flight._id,
+        'segments.$[seg].flightNumber': flight.flightNumber,
+        'segments.$[seg].departureTime': flight.departureTime,
+        'segments.$[seg].arrivalTime': flight.arrivalTime,
+        'segments.$[seg].farePerSeat': farePerSeat,
+        'segments.$[seg].fareSubtotal': fromCents(newCents),
+        fareTotal: fromCents(fareTotalCents),
+        totalPrice: fromCents(totalCents),
+        departureTime:
+          direction === SegmentDirection.OUTBOUND ? flight.departureTime : booking.departureTime,
+        endsAt,
+        ...passengerFares,
+      } as Record<string, unknown>,
+    };
+  }
+
+  // ======================================================================
+  // a DEARER flight: the user pays the difference first
+  // ======================================================================
+
+  /**
+   * The new flight costs more. Its seats are held for 10 minutes and a pending change is stored on
+   * the booking; the booking itself stays on the old flight until Payments confirms the payment
+   * (confirmChangeAfterPayment). Nothing is charged here: Member 5 charges `amountDue`.
+   */
+  private async startPaidChange(
+    ctx: Awaited<ReturnType<FlightChangesService['loadChangeable']>>,
+    direction: SegmentDirection,
+    flight: FlightLean,
+    farePerSeat: number,
+    check: ReturnType<FlightChangesService['assess']>,
+  ) {
+    const { booking, segment } = ctx;
+    const userId = booking.userId.toString();
+    const bookingId = booking._id.toString();
+
+    await this.flightsService.reserveSeats(
+      flight._id.toString(),
+      segment.cabinClass,
+      booking.seatCount,
+    );
+
+    const now = new Date();
+    const pending = {
+      changeId: new Types.ObjectId(),
+      direction,
+      fromFlightId: segment.flightId,
+      fromFlightNumber: segment.flightNumber,
+      toFlightId: flight._id,
+      toFlightNumber: flight.flightNumber,
+      cabinClass: segment.cabinClass,
+      oldFare: segment.fareSubtotal,
+      newFare: fromCents(check.newFareCents),
+      amountDue: check.difference.amount,
+      farePerSeat,
+      createdAt: now,
+      holdExpiresAt: new Date(now.getTime() + HOLD_MINUTES * 60_000),
+    };
+    // atomic: only one pending change per booking, and only while it is still Confirmed on this flight
+    const claimed = await this.bookingModel.findOneAndUpdate(
+      {
+        _id: booking._id,
+        userId: booking.userId,
+        status: BookingStatus.CONFIRMED,
+        pendingChange: { $exists: false },
+        segments: {
+          $elemMatch: { direction, flightId: segment.flightId, departureTime: { $gt: now } },
+        },
+      },
+      { $set: { pendingChange: pending } },
+      { returnDocument: 'after' },
+    );
+    if (!claimed) {
+      await this.safely(
+        () =>
+          this.flightsService.releaseHeldSeats(
+            flight._id.toString(),
+            segment.cabinClass,
+            booking.seatCount,
+          ),
+        'return the held seats of the new flight',
+      );
+      throw new ConflictException('This booking can no longer be changed');
+    }
+    return this.bookings.get(userId, bookingId);
+  }
+
+  /** The user gives up an unpaid change to a dearer flight: its seats are released at once. */
+  async cancelPendingChange(userId: string, id: string) {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException(NOT_FOUND);
+    const before = (await this.bookingModel
+      .findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(id),
+          userId: new Types.ObjectId(userId),
+          status: BookingStatus.CONFIRMED,
+          pendingChange: { $exists: true },
+        },
+        { $unset: { pendingChange: '' } },
+        { returnDocument: 'before' },
+      )
+      .lean()
+      .exec()) as unknown as BookingLean | null;
+    if (!before?.pendingChange) {
+      const exists = await this.bookingModel
+        .exists({ _id: new Types.ObjectId(id), userId: new Types.ObjectId(userId) })
+        .exec();
+      if (!exists) throw new NotFoundException(NOT_FOUND);
+      throw new ConflictException('No flight change is waiting for payment');
+    }
+    await this.endPendingChange(before, 'cancelled');
+    return this.bookings.get(userId, id);
+  }
+
+  /** Seats of the new flight go back, Payments cancels the open payment of that change. */
+  private async endPendingChange(booking: BookingLean, reason: 'expired' | 'cancelled') {
+    const pending = booking.pendingChange;
+    if (!pending) return;
+    await this.safely(
+      () =>
+        this.flightsService.releaseHeldSeats(
+          pending.toFlightId.toString(),
+          pending.cabinClass,
+          booking.seatCount,
+        ),
+      'return the held seats of the unpaid change',
+    );
+    const event: FlightBookingChangeExpiredEvent = {
+      bookingId: booking._id.toString(),
+      userId: booking.userId.toString(),
+      changeId: pending.changeId.toString(),
+      reason,
+    };
+    this.events.emit(FLIGHT_BOOKING_EVENTS.CHANGE_EXPIRED, event);
+    if (reason === 'expired') {
+      await this.safeNotify({
+        userId: booking.userId.toString(),
+        type: 'FLIGHT_CHANGE_EXPIRED',
+        title: 'Flight change expired',
+        message:
+          `The change of your booking ${booking.reference ?? ''} to flight ${pending.toFlightNumber} ` +
+          'was not paid in time, so it was cancelled. Your booking stays on flight ' +
+          `${pending.fromFlightNumber}.`,
+        related: { type: 'flight_booking', id: booking._id.toString() },
+      });
+    }
+  }
+
+  /** Expires ONE booking's unpaid change if its time is up (atomic: the seats go back only once). */
+  private async expireDuePending(bookingId: Types.ObjectId): Promise<boolean> {
+    const before = (await this.bookingModel
+      .findOneAndUpdate(
+        { _id: bookingId, 'pendingChange.holdExpiresAt': { $lte: new Date() } },
+        { $unset: { pendingChange: '' } },
+        { returnDocument: 'before' },
+      )
+      .lean()
+      .exec()) as unknown as BookingLean | null;
+    if (!before?.pendingChange) return false;
+    await this.endPendingChange(before, 'expired');
+    return true;
+  }
+
+  /** Every unpaid change whose 10 minutes are over. Returns how many were expired. */
+  async expireDueChanges(batchSize = 200): Promise<number> {
+    const due = await this.bookingModel
+      .find({ 'pendingChange.holdExpiresAt': { $lte: new Date() } })
+      .select('_id')
+      .limit(batchSize)
+      .lean()
+      .exec();
+    let count = 0;
+    for (const row of due) {
+      if (await this.expireDuePending(row._id as Types.ObjectId)) count += 1;
+    }
+    return count;
+  }
+
+  /** Runs every minute (ScheduleModule is registered by Member 2's FlightsModule). */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async expireChangesJob(): Promise<void> {
+    if (this.expiring) return; // never overlap with a previous run
+    this.expiring = true;
+    try {
+      const count = await this.expireDueChanges();
+      if (count > 0) this.logger.log(`Expired ${count} unpaid flight change(s)`);
+    } catch (error) {
+      this.logger.error(`Flight change expiry job failed: ${(error as Error).message}`);
+    } finally {
+      this.expiring = false;
+    }
+  }
+
+  // ======================================================================
+  // contract for Payments (Member 5): changes/payable-change.interface.ts
+  // ======================================================================
+
+  /** What Payments needs to charge the price difference. No ownership check here: Payments does it. */
+  async findPayableChange(bookingId: string, changeId: string): Promise<PayableFlightChange> {
+    const noChange = () =>
+      new NotFoundException('This flight change is no longer waiting for payment');
+    if (!Types.ObjectId.isValid(bookingId) || !Types.ObjectId.isValid(changeId)) {
+      throw new NotFoundException(NOT_FOUND);
+    }
+    const id = new Types.ObjectId(bookingId);
+    await this.expireDuePending(id); // a change whose time is up is gone, whatever the job did
+    const booking = (await this.bookingModel.findById(id).lean().exec()) as unknown as BookingLean | null;
+    if (!booking) throw new NotFoundException(NOT_FOUND);
+    const pending = booking.pendingChange;
+    if (!pending || pending.changeId.toString() !== changeId || booking.status !== BookingStatus.CONFIRMED) {
+      throw noChange();
+    }
+    return {
+      bookingId: booking._id.toString(),
+      changeId,
+      ownerId: booking.userId.toString(),
+      providerId: booking.airlineId.toString(),
+      amount: pending.amountDue,
+      currency: booking.currency,
+      status: booking.status,
+      holdExpiresAt: pending.holdExpiresAt,
+      reference: booking.reference ?? '',
+      description:
+        `Flight change ${pending.fromFlightNumber} to ${pending.toFlightNumber} ` +
+        `(booking ${booking.reference ?? booking._id.toString()})`,
+    };
+  }
+
+  /**
+   * The difference was paid: move the booking to the new flight. ATOMIC: the booking is switched
+   * only if it still has THIS pending change, its time is not up and it is Confirmed on the old
+   * flight. A redelivery of the same payment returns true again and changes nothing.
+   */
+  async confirmChangeAfterPayment(
+    bookingId: string,
+    changeId: string,
+    paymentId: string,
+  ): Promise<boolean> {
+    const isId = (v: string) => /^[a-f\d]{24}$/i.test(v);
+    if (!isId(bookingId) || !isId(changeId) || !isId(paymentId)) {
+      throw new BadRequestException('bookingId, changeId and paymentId must be ids');
+    }
+    const id = new Types.ObjectId(bookingId);
+    const alreadyPaid = (b: BookingLean | null) =>
+      !!b?.changes?.some(
+        (c) => c.changeId?.toString() === changeId && c.paymentId?.toString() === paymentId,
+      );
+
+    const existing = (await this.bookingModel.findById(id).lean().exec()) as unknown as BookingLean | null;
+    if (!existing) {
+      this.logger.warn(`Payment ${paymentId} succeeded for unknown flight booking ${bookingId}`);
+      return false;
+    }
+    if (alreadyPaid(existing)) return true; // webhook redelivery
+    const pending = existing.pendingChange;
+    if (existing.status !== BookingStatus.CONFIRMED || !pending || pending.changeId.toString() !== changeId) {
+      return false;
+    }
+    if (pending.holdExpiresAt.getTime() <= Date.now()) {
+      await this.expireDuePending(id); // the job has not run yet: expire it now
+      return false;
+    }
+
+    // the new flight must still be bookable and still fit a round trip (schedules can change)
+    const flight = (await this.flightModel
+      .findById(pending.toFlightId)
+      .lean()
+      .exec()) as unknown as FlightLean | null;
+    const segment = existing.segments.find(
+      (s) => s.direction === pending.direction && s.flightId.equals(pending.fromFlightId),
+    );
+    const other = existing.segments.find((s) => s.direction !== pending.direction) ?? null;
+    if (
+      !flight ||
+      !segment ||
+      flight.status !== FlightStatus.SCHEDULED ||
+      flight.departureTime.getTime() <= Date.now() ||
+      segmentOrderProblem(pending.direction, flight, other)
+    ) {
+      this.logger.warn(`Paid flight change ${changeId} of booking ${bookingId} can no longer be applied`);
+      return false;
+    }
+
+    const newCents = segmentFareCents(existing.passengers, toCents(pending.farePerSeat));
+    const sw = this.switchFields(existing, pending.direction, flight, pending.farePerSeat, newCents);
+    const now = new Date();
+    const claimed = await this.bookingModel.findOneAndUpdate(
+      {
+        _id: id,
+        status: BookingStatus.CONFIRMED,
+        'pendingChange.changeId': pending.changeId,
+        'pendingChange.holdExpiresAt': { $gt: now },
+        segments: {
+          $elemMatch: { direction: pending.direction, flightId: pending.fromFlightId },
+        },
+      },
+      {
+        $set: sw.set,
+        $unset: { pendingChange: '', 'segments.$[seg].seatsLocked': '' },
+        $push: {
+          extraPaymentIds: new Types.ObjectId(paymentId),
+          changes: {
+            at: now,
+            direction: pending.direction,
+            fromFlightId: pending.fromFlightId,
+            fromFlightNumber: pending.fromFlightNumber,
+            toFlightId: pending.toFlightId,
+            toFlightNumber: pending.toFlightNumber,
+            oldFare: pending.oldFare,
+            newFare: fromCents(newCents),
+            fareDirection: 'pay',
+            refundAmount: 0,
+            amountPaid: pending.amountDue,
+            changeId: pending.changeId,
+            paymentId: new Types.ObjectId(paymentId),
+          },
+        },
+      },
+      {
+        returnDocument: 'after',
+        arrayFilters: [{ 'seg.direction': pending.direction, 'seg.flightId': pending.fromFlightId }],
+      },
+    );
+    if (!claimed) {
+      // lost a race (expired, cancelled or paid by a parallel call): true only if THIS payment did it
+      const current = (await this.bookingModel.findById(id).lean().exec()) as unknown as BookingLean | null;
+      return alreadyPaid(current);
+    }
+
+    const record = claimed.toObject() as unknown as BookingLean;
+    try {
+      await this.flightsService.confirmSeats(
+        pending.toFlightId.toString(),
+        pending.cabinClass,
+        record.seatCount,
+      );
+    } catch (error) {
+      // Should be impossible: the seats were held for this change.
+      this.logger.error(
+        `CRITICAL: booking ${bookingId} moved to ${pending.toFlightNumber} but its held seats could not ` +
+          `be made booked: ${(error as Error).message}`,
+      );
+    }
+    await this.safely(
+      () =>
+        this.flightsService.releaseBookedSeats(
+          pending.fromFlightId.toString(),
+          pending.cabinClass,
+          record.seatCount,
+        ),
+      'return the seats of the old flight',
+    );
+    await this.safely(
+      () => this.seatModel.deleteMany({ bookingId: id, flightId: pending.fromFlightId }).exec(),
+      'clear the seats chosen on the old flight',
+    );
+    await this.safeNotify({
+      userId: record.userId.toString(),
+      type: 'FLIGHT_BOOKING_CHANGED',
+      title: 'Flight changed',
+      message:
+        `Your booking ${record.reference}: ${pending.direction} flight ${pending.fromFlightNumber} was changed to ` +
+        `${pending.toFlightNumber}. You paid ${pending.amountDue.toFixed(2)} ${record.currency} for the difference. ` +
+        'Seats you chose on the old flight were cleared: you can choose seats again on the new flight.',
+      related: { type: 'flight_booking', id: bookingId },
+    });
+    return true;
+  }
+
+  /**
    * The rules every new flight must satisfy, used by the options list AND by the change itself, so
    * what the user is shown is exactly what is accepted. `reasons` is empty when the flight is fine.
    */
@@ -246,9 +659,17 @@ export class FlightChangesService {
    */
   async changeFlight(userId: string, id: string, dto: ChangeFlightDto) {
     const direction = dto.segment ?? SegmentDirection.OUTBOUND;
+    // an unpaid change that ran out of time must not block a new one while the job has not run yet
+    if (Types.ObjectId.isValid(id)) await this.expireDuePending(new Types.ObjectId(id));
     const ctx = await this.loadChangeable(userId, id, direction);
     const { booking, segment, currentFlight } = ctx;
 
+    if (booking.pendingChange) {
+      throw new ConflictException(
+        `A change to flight ${booking.pendingChange.toFlightNumber} is waiting for payment. ` +
+          'Pay it, cancel it (DELETE /change-flight) or wait until it expires.',
+      );
+    }
     if (dto.flightId === segment.flightId.toString()) {
       throw new BadRequestException('The booking is already on this flight');
     }
@@ -282,10 +703,7 @@ export class FlightChangesService {
     const check = this.assess(ctx, direction, flight, cabin, localDate);
     if (check.reasons.length > 0) throw new ConflictException(check.reasons.join('; '));
     if (check.difference.direction === 'pay') {
-      throw new ConflictException(
-        `This flight costs ${check.difference.amount.toFixed(2)} ${booking.currency} more. ` +
-          'Changing to a more expensive flight is not available yet.',
-      );
+      return this.startPaidChange(ctx, direction, flight, cabin.price, check);
     }
 
     // ---- 1. seats on the new flight ----
@@ -304,31 +722,9 @@ export class FlightChangesService {
     // ---- money (integer cents): only this flight's fare changes, baggage stays ----
     const paidCents = toCents(segment.fareSubtotal);
     const newCents = check.newFareCents;
-    const newFarePerSeat = cabin.price;
-    const segments = booking.segments.map((s) =>
-      s.direction === direction ? { ...s, farePerSeat: newFarePerSeat } : s,
-    );
-    const fareTotalCents = toCents(booking.fareTotal) - paidCents + newCents;
-    const totalCents = fareTotalCents + toCents(booking.baggageTotal);
     const refundAmount = Math.max(0, paidCents - newCents) / 100;
     const now = new Date();
-
-    const passengerFares: Record<string, number> = {};
-    booking.passengers.forEach((p, index) => {
-      const cents = segments.reduce(
-        (sum, s) => sum + fareCentsFor(p.type, toCents(s.farePerSeat)),
-        0,
-      );
-      passengerFares[`passengers.${index}.fare`] = fromCents(cents);
-    });
-
-    const outboundDeparture =
-      direction === SegmentDirection.OUTBOUND ? flight.departureTime : booking.departureTime;
-    // the booking ends with its last flight: only a changed return (or a one-way) moves it
-    const endsAt =
-      direction === SegmentDirection.OUTBOUND && booking.segments.length > 1
-        ? booking.endsAt
-        : flight.arrivalTime;
+    const sw = this.switchFields(booking, direction, flight, cabin.price, newCents);
 
     // ---- 2. one atomic switch ----
     const claimed = await this.bookingModel.findOneAndUpdate(
@@ -345,19 +741,7 @@ export class FlightChangesService {
         },
       },
       {
-        $set: {
-          'segments.$[seg].flightId': flight._id,
-          'segments.$[seg].flightNumber': flight.flightNumber,
-          'segments.$[seg].departureTime': flight.departureTime,
-          'segments.$[seg].arrivalTime': flight.arrivalTime,
-          'segments.$[seg].farePerSeat': newFarePerSeat,
-          'segments.$[seg].fareSubtotal': fromCents(newCents),
-          fareTotal: fromCents(fareTotalCents),
-          totalPrice: fromCents(totalCents),
-          departureTime: outboundDeparture,
-          endsAt,
-          ...passengerFares,
-        },
+        $set: sw.set,
         $unset: { 'segments.$[seg].seatsLocked': '' },
         $push: {
           changes: {

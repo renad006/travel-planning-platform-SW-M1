@@ -14,7 +14,21 @@ export const FLIGHT_BOOKING_EVENTS = {
    * refunds `amount` (the whole difference, no cancellation tier) to the original payment.
    */
   FARE_REDUCED: 'flight-booking.fare-reduced',
+  /**
+   * FLT-27: a change to a dearer flight that waited for payment ended WITHOUT being paid (the 10
+   * minutes ran out, or the user cancelled it, or the booking was cancelled). Member 5 cancels
+   * the open PaymentIntent of that change.
+   */
+  CHANGE_EXPIRED: 'flight-booking.change-expired',
 } as const;
+
+export interface FlightBookingChangeExpiredEvent {
+  bookingId: string;
+  userId: string;
+  /** The pending change: Payments finds its open PaymentIntent with it. */
+  changeId: string;
+  reason: 'expired' | 'cancelled';
+}
 
 export interface FlightBookingFareReducedEvent {
   bookingId: string;
@@ -35,6 +49,12 @@ export interface FlightBookingCancelledEvent {
   reference: string;
   /** Payment document (Member 5) that has to be refunded. */
   paymentId?: string;
+  /**
+   * FLT-27: payments of price differences (a change to a dearer flight). Each one is refunded
+   * with the same rules. Absent/empty when the booking was never changed to a dearer flight.
+   * `amount` below is the TOTAL paid (booking price now = first payment + these).
+   */
+  extraPaymentIds?: string[];
   /** 'airline' = FLT-06, Payments refunds 100%. 'user' = FLT-26, Payments applies the tiers. */
   cancelledBy: 'user' | 'airline';
   /** Amount that was paid (FlightBooking.totalPrice). */

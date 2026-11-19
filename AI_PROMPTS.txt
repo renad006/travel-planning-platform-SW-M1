@@ -654,6 +654,17 @@ How the output was used:
 flight-changes service and controller, ChangeFlightDto, booking change history, fare-reduced event.
 ================================================
 
+================================================
+Date: 2026-11-19
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-27 (pay the difference for a more expensive flight)
+Prompt: 
+Finish FLT-27: when the new flight costs more, hold its seat for 10 minutes and keep the booking on the old flight until the price difference is paid; add the methods Payments needs to charge and confirm it, an expiry job, and a way to cancel the pending change.
+How the output was used:
+pending change on the booking, payable-change contract, expiry job, DELETE /change-flight, extra payment ids in the cancelled event.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
