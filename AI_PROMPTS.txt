@@ -1197,3 +1197,15 @@ Integrate Member 3's ItineraryBudgetService to calculate group budget subtotals 
 How the output was used:
 Imported ItineraryBudgetModule into ItinerariesModule, injected ItineraryBudgetService into ItinerariesService, and replaced calculateDates with calculateDaysWithSubtotals. Added @ValidateIf to CreateActivityDto. Tested in Swagger: 400 without currency, 201 with currency, and GET itinerary returns groupDayCount and groupBudgetSubtotal from Member 3's service.
 ================================================================================
+
+================================================
+Date: 2026-11-19
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: BON-02
+Prompt:
+Write the bonus favourites list for hotels and public itineraries in its own folder, so no other member's code is touched.
+How the output was used:
+Added a favourites module: save a hotel or a public itinerary (a hotel must exist and be active, an itinerary must be public and not hidden, saving twice is refused), list my favourites newest first with a short summary and an optional type filter, and remove one. Registered it with one line in app.module.ts. Tested with curl, 25 checks: save 201, duplicate 409, unknown or malformed ids 404 and 400, a private itinerary 404, the list drops an itinerary that turns private and shows it again when it is public, removing twice 404, admin 403 and logged out 401.
+================================================
+
