@@ -632,6 +632,18 @@ How the output was used:
 I used the generated seat layout, seat assignment collection, service, scheduled auto-assign job and controller, and tested the seat map, picking and changing seats, the 3-pick limit, conflicts, infants, other users, the 24-hour cut-off and cancellation in Swagger and Compass.
 ================================================
 
+================================================
+Date: 2026-11-19
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-27 
+Prompt: 
+Implement the read-only part of FLT-27: list the flights a user can switch a Confirmed booking to (same airline, route and cabin, enough seats, round-trip order respected, passenger types and bag weight still valid).
+How the output was used:
+change-rules.ts (pure rules + tests), flight-changes.service/controller, DTO.
+Checked: unit tests, Swagger tests, nothing changed in the database.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
