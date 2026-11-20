@@ -1,4 +1,15 @@
-import { Controller, Post, Body, Get, Query, Patch, Delete, Param , UseGuards } from '@nestjs/common';
+import { ParseObjectIdPipe } from '../hotels/parse-object-id.pipe';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Query,
+  Patch,
+  Delete,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { BlogService } from './blog.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -20,7 +31,7 @@ import { OptionalAuthGuard } from './guards/optional-auth.guard';
 export class BlogController {
   constructor(private readonly blogService: BlogService) {}
 
-    @Get()
+  @Get()
   @Public()
   @ApiOperation({ summary: 'Get published posts (BLG-02)' })
   async findAllPosts(@Query() dto: GetPostsDto) {
@@ -37,22 +48,22 @@ export class BlogController {
     return this.blogService.findMyPosts(user._id.toString(), dto);
   }
 
-    @Get(':id')
+  @Get(':id')
   @Public()
   @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: 'Get a single post by ID (BLG-02)' })
   async getPostById(
-    @Param('id') id: string,
-    @CurrentUser() user?: UserDocument, 
+    @Param('id', ParseObjectIdPipe) id: string,
+    @CurrentUser() user?: UserDocument,
   ) {
     return this.blogService.getPostById(id, user?._id?.toString());
   }
 
-    @Patch(':id')
+  @Patch(':id')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Edit own post (BLG-04)' })
   async updatePost(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
     @Body() dto: UpdatePostDto,
   ) {
@@ -62,7 +73,7 @@ export class BlogController {
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Delete own post (BLG-04)' })
   async deletePost(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
   ) {
     return this.blogService.deletePost(id, user._id.toString());
@@ -77,22 +88,22 @@ export class BlogController {
     return this.blogService.createPost(user._id.toString(), createPostDto);
   }
 
-    @Post(':id/comments')
+  @Post(':id/comments')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Add a comment (BLG-05)' })
   async addComment(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
     @Body() dto: CreateCommentDto,
   ) {
     return this.blogService.addComment(id, user._id.toString(), dto);
   }
 
-    @Post(':id/like')
+  @Post(':id/like')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Like a post (BLG-06)' })
   async likePost(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
   ) {
     return this.blogService.likePost(id, user._id.toString());
@@ -102,13 +113,13 @@ export class BlogController {
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Unlike a post (BLG-06)' })
   async unlikePost(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
   ) {
     return this.blogService.unlikePost(id, user._id.toString());
   }
 
-    @Post(':id/images')
+  @Post(':id/images')
   @ApiCookieAuth()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -120,7 +131,7 @@ export class BlogController {
   @ApiOperation({ summary: 'Upload an image for a post (BLG-10)' })
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
     @UploadedFile() file: Express.Multer.File,
   ) {
@@ -131,22 +142,25 @@ export class BlogController {
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Delete an image from a post (BLG-10)' })
   async deleteImage(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Param('imageId') imageId: string,
     @CurrentUser() user: UserDocument,
   ) {
-    return this.blogService.deleteImageFromPost(id, imageId, user._id.toString());
+    return this.blogService.deleteImageFromPost(
+      id,
+      imageId,
+      user._id.toString(),
+    );
   }
 
-    @Patch(':id/itinerary')
+  @Patch(':id/itinerary')
   @ApiCookieAuth()
   @ApiOperation({ summary: 'Attach an itinerary to a post (BLG-13)' })
   async attachItinerary(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @CurrentUser() user: UserDocument,
     @Body() dto: AttachItineraryDto,
   ) {
     return this.blogService.attachItinerary(id, user._id.toString(), dto);
   }
-  
 }
