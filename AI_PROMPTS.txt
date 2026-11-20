@@ -665,6 +665,17 @@ How the output was used:
 pending change on the booking, payable-change contract, expiry job, DELETE /change-flight, extra payment ids in the cancelled event.
 ================================================
 
+================================================
+Date: 2026-11-20
+Student: Suha 
+Tool: Claude
+Related Requirement: README 
+Prompt: 
+Write the Member 3 section of the README (flight bookings, seat selection, flight changes, itinerary budgeting, exchange rates, sharing), consistent with the other members' sections.
+How the output was used:
+README.md section text. Checked against the routes and rules in the code.
+================================================
+
 ================================================================================
 Date: 2026-11-11
 Student: Malak Haytham
