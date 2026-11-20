@@ -45,6 +45,26 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Bonus, forgot password by email** (ACC-07): `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`. The emailed token is single use, expires after 30 minutes, and only its hash is stored.
 - **Bonus, email notifications** (GEN-01-B): every in-app notification also sends an email copy. Email problems never break the action that triggered the notification.
 
+
+
+## Payments & Refunds (Member 5)
+
+- **Payments** (`/api/payments`): Accept booking policies (PAY-01), create a payment 
+  and Stripe PaymentIntent for a flight or hotel booking (PAY-02), retry a failed 
+  payment (PAY-03), get a payment by id. Stripe webhook (`/api/payments/webhook`) 
+  confirms bookings on successful payment and never trusts client-reported status.
+- **Refunds** (`/api/refunds`): Get a refund by id (PAY-04). Refunds are issued 
+  automatically on booking cancellation, respecting each booking's cancellation-tier 
+  policy, and never require manual admin action.
+- **Bonus, flight-change payments** (FLT-27 payment integration): 
+  `POST /api/payments/flight-change` pays the fare difference when a confirmed flight 
+  booking is changed to a pricier flight. A fare drop refunds automatically with no 
+  payment step. An abandoned or expired pending change cancels its Stripe PaymentIntent. 
+  Cancelling a booking with more than one payment (an original payment plus one or more 
+  flight-change payments) splits the refund across all of them correctly.
+- **Idempotency**: all Stripe PaymentIntent/Refund calls use per-flow idempotency keys 
+  to prevent duplicate charges or refunds on retry or webhook redelivery.
+
 ## Itineraries & Integration (Member 6)
 
 - **Itinerary CRUD** (`/api/itineraries`): Create, list, edit, and delete itineraries (ITN-01, ITN-03). Private by default. Enforces strict ownership (non-owners get 404).
