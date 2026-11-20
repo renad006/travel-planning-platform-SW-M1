@@ -45,7 +45,14 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Bonus, forgot password by email** (ACC-07): `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`. The emailed token is single use, expires after 30 minutes, and only its hash is stored.
 - **Bonus, email notifications** (GEN-01-B): every in-app notification also sends an email copy. Email problems never break the action that triggered the notification.
 
+## Flight Bookings & Itinerary Budgeting (Member 3)
 
+- **Flight bookings** (`/api/flight-bookings`): Booking summary before payment (FLT-19, FLT-21), atomic 10-minute seat hold so seats can never be overbooked, with a job that releases expired holds (FLT-22). After booking is `Confirmed` with a unique reference and a PDF e-ticket (FLT-23). The user can list their bookings as Upcoming, Past and Cancelled (FLT-25) and cancel one after seeing the refund from the airline's tiers (FLT-26). Ownership is enforced (other users get 404).
+- **Budget** (`/api/itineraries/:id/...`): Budget entries per day (ITN-14), intercity transport costs (ITN-16), and `GET /api/itineraries/:id/budget-summary?currency=` for totals by category and by day. Amounts without an exchange rate are listed under `unconverted`, never guessed.
+- **Exchange rates** (`/api/fx-rates`): FXRatesAPI rates are fetched once a day and cached; the last cached rates are used if the API is down (ITN-18). The API key stays on the server.
+- **Sharing** (`/api/shared-itineraries`): Public or private visibility (ITN-20), public search and read-only view for guests, and cloning into a private copy that credits the author (ITN-21).
+- **Bonus, seat selection** (FLT-28): `GET` and `PATCH /api/flight-bookings/:id/seat`. Up to 3 picks per passenger, closes 24 hours before departure, remaining seats are auto-assigned.
+- **Bonus, change flight** (FLT-27): `change-options`, `PATCH` and `DELETE /api/flight-bookings/:id/change-flight`. Same price or cheaper is applied at once (cheaper is refunded). A more expensive flight waits 10 minutes for payment of the difference.
 
 ## Payments & Refunds (Member 5)
 
