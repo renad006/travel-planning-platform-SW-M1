@@ -1,3 +1,4 @@
+import { ParseObjectIdPipe } from '../hotels/parse-object-id.pipe';
 import {
   BadRequestException,
   Body,
@@ -59,7 +60,8 @@ export class PaymentsController {
 
   @Post()
   @ApiOperation({
-    summary: 'PAY-01: create a Stripe PaymentIntent for a Pending Payment booking',
+    summary:
+      'PAY-01: create a Stripe PaymentIntent for a Pending Payment booking',
   })
   @ApiCreatedResponse({ description: 'PaymentIntent created' })
   @ApiNotFoundResponse({ description: 'Booking not found' })
@@ -92,22 +94,31 @@ export class PaymentsController {
 
   @Post(':id/retry')
   @ApiOperation({
-    summary: 'PAY-01: retry a failed payment with a new PaymentIntent before the hold expires',
+    summary:
+      'PAY-01: retry a failed payment with a new PaymentIntent before the hold expires',
   })
   @ApiCreatedResponse({ description: 'New PaymentIntent created' })
   @ApiNotFoundResponse({ description: 'Payment not found' })
   @ApiConflictResponse({
     description: 'Booking is not awaiting payment or the hold has expired',
   })
-  retryPayment(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+  retryPayment(
+    @CurrentUser() user: UserDocument,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     return this.paymentsService.retryPayment(user.id, id);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'PAY-01: get a payment by id (owner or admin only)' })
+  @ApiOperation({
+    summary: 'PAY-01: get a payment by id (owner or admin only)',
+  })
   @ApiOkResponse({ description: 'Payment details' })
   @ApiNotFoundResponse({ description: 'Payment not found' })
-  getPayment(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+  getPayment(
+    @CurrentUser() user: UserDocument,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     return this.paymentsService.getPayment(
       user.id,
       id,

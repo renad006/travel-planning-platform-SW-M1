@@ -1,3 +1,4 @@
+import { ParseObjectIdPipe } from '../hotels/parse-object-id.pipe';
 import {
   Body,
   Controller,
@@ -48,7 +49,7 @@ export class ReviewsController {
   })
   createReview(
     @CurrentUser() user: UserDocument,
-    @Param('id') bookingId: string,
+    @Param('id', ParseObjectIdPipe) bookingId: string,
     @Body() dto: CreateReviewDto,
   ) {
     return this.reviewsService.create(user.id, bookingId, dto);
@@ -62,7 +63,7 @@ export class ReviewsController {
   @ApiNotFoundResponse({ description: 'Review not found' })
   updateReview(
     @CurrentUser() user: UserDocument,
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateReviewDto,
   ) {
     return this.reviewsService.update(user.id, id, dto);
@@ -75,7 +76,10 @@ export class ReviewsController {
   @ApiOperation({ summary: 'HTL-23: delete your own review' })
   @ApiNoContentResponse({ description: 'Review deleted' })
   @ApiNotFoundResponse({ description: 'Review not found' })
-  deleteReview(@CurrentUser() user: UserDocument, @Param('id') id: string) {
+  deleteReview(
+    @CurrentUser() user: UserDocument,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     return this.reviewsService.remove(user.id, id);
   }
 
@@ -85,10 +89,12 @@ export class ReviewsController {
     summary:
       "HTL-24: a hotel's average rating, rating count and reviews (newest first, paginated)",
   })
-  @ApiOkResponse({ description: 'Average rating, rating count and paginated reviews' })
+  @ApiOkResponse({
+    description: 'Average rating, rating count and paginated reviews',
+  })
   @ApiNotFoundResponse({ description: 'Hotel not found' })
   listReviews(
-    @Param('id') hotelId: string,
+    @Param('id', ParseObjectIdPipe) hotelId: string,
     @Query() query: PaginationQueryDto,
   ) {
     return this.reviewsService.listForHotel(hotelId, query);
@@ -97,13 +103,15 @@ export class ReviewsController {
   @ApiCookieAuth('access_token')
   @ApiUnauthorizedResponse({ description: 'Not logged in' })
   @Post('reviews/:id/reply')
-  @ApiOperation({ summary: 'HTL-26 (Bonus): hotel moderator replies to a review' })
+  @ApiOperation({
+    summary: 'HTL-26 (Bonus): hotel moderator replies to a review',
+  })
   @ApiOkResponse({ description: 'Reply added' })
   @ApiNotFoundResponse({ description: 'Review not found' })
   @ApiForbiddenResponse({ description: "Not the hotel's own moderator" })
   replyToReview(
     @CurrentUser() user: UserDocument,
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: ReplyReviewDto,
   ) {
     return this.reviewsService.reply(user, id, dto);
