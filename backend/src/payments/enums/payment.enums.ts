@@ -8,6 +8,8 @@ export enum PaymentStatus {
   SUCCEEDED = 'succeeded',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
+  PARTIALLY_REFUNDED = 'partially_refunded',
+  REFUNDED = 'refunded',
 }
 
 export enum RefundStatus {

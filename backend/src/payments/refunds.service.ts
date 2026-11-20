@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import Stripe from 'stripe';
@@ -10,11 +10,13 @@ import type {
   FlightBookingChangeExpiredEvent,
   FlightBookingExpiredEvent,
   FlightBookingFareReducedEvent,
+  FlightBookingRefundProcessedEvent,
 } from '../flight-bookings/flight-bookings.events';
 import { HOTEL_BOOKING_EVENTS } from '../hotel-bookings/hotel-bookings.events';
 import type {
   HotelBookingCancelledEvent,
   HotelBookingExpiredEvent,
+  HotelBookingRefundProcessedEvent,
 } from '../hotel-bookings/hotel-bookings.events';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
@@ -38,6 +40,7 @@ export class RefundsService {
     private readonly refundModel: Model<RefundDocument>,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
+    private readonly events: EventEmitter2,
   ) {
     const secretKey = this.config.get<string>('stripe.secretKey');
     if (secretKey) {
@@ -294,6 +297,37 @@ export class RefundsService {
       refund.stripeRefundId = stripeRefund.id;
       refund.status = RefundStatus.REFUNDED;
       await refund.save();
+
+      // PAY-03: reflect the refund on the payment itself — previously nothing updated
+      // payment.status/refundedAmount, so a refunded payment still looked SUCCEEDED forever.
+      payment.refundedAmount = (payment.refundedAmount ?? 0) + refund.amount;
+      payment.status =
+        payment.refundedAmount >= payment.amount
+          ? PaymentStatus.REFUNDED
+          : PaymentStatus.PARTIALLY_REFUNDED;
+      await payment.save();
+
+      // PAY-03: tell the booking module the confirmed refund result — previously nothing wrote
+      // this back, so cancellation.refundId/refundAmount/refundPercentage stayed null forever.
+      if (bookingType === 'flight') {
+        const flightEvent: FlightBookingRefundProcessedEvent = {
+          bookingId,
+          refundId: refund.id,
+          refundAmount: refund.amount,
+          refundPercent: refund.percent,
+        };
+        this.events.emit(FLIGHT_BOOKING_EVENTS.REFUND_PROCESSED, flightEvent);
+      } else if (bookingType === 'hotel') {
+        // PAY-03: same write-back for hotel bookings — cancel() only ever set a pre-calculated
+        // preview; this overwrites it with the Stripe-confirmed amount/percent and sets refundId.
+        const hotelEvent: HotelBookingRefundProcessedEvent = {
+          bookingId,
+          refundId: refund.id,
+          refundAmount: refund.amount,
+          refundPercent: refund.percent,
+        };
+        this.events.emit(HOTEL_BOOKING_EVENTS.REFUND_PROCESSED, hotelEvent);
+      }
 
       await this.notifications.notify({
         userId,

@@ -9,6 +9,8 @@ export const HOTEL_BOOKING_EVENTS = {
   CANCELLED: 'hotel-booking.cancelled',
   /** HTL-18: a Pending Payment hold expired. Payments cancels the Stripe PaymentIntent (PAY-01). */
   EXPIRED: 'hotel-booking.expired',
+  /** PAY-03: Payments confirmed the refund with Stripe — write refundId/refundAmount/refundPercentage back onto the booking. */
+  REFUND_PROCESSED: 'hotel-booking.refund-processed',
 } as const;
 
 export interface HotelBookingCancelledEvent {
@@ -34,4 +36,12 @@ export interface HotelBookingExpiredEvent {
   bookingId: string;
   userId: string;
   paymentId?: string;
+}
+
+/** PAY-03: the confirmed, Stripe-reconciled refund result for a cancelled reservation. */
+export interface HotelBookingRefundProcessedEvent {
+  bookingId: string;
+  refundId: string;
+  refundAmount: number;
+  refundPercent: number;
 }
