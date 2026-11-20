@@ -45,6 +45,20 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Bonus, forgot password by email** (ACC-07): `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`. The emailed token is single use, expires after 30 minutes, and only its hash is stored.
 - **Bonus, email notifications** (GEN-01-B): every in-app notification also sends an email copy. Email problems never break the action that triggered the notification.
 
+## Airlines & Flights (Member 2)
+
+- **Airlines** (`/api/airlines`): An admin creates an airline (FLT-01). Its moderator edits the name and code and uploads one logo, JPG or PNG up to 5 MB, where a new logo replaces the old one (FLT-01, GEN-08). Public list and details.
+- **Policies**: Baggage with `PUT /api/airlines/:id/baggage-policy`, giving the extra-bag price and max extra bags per passenger (FLT-08). Cancellation tiers with `PUT /api/airlines/:id/cancellation-policy` (FLT-09): the refund uses the highest tier not above the days left before departure, or 0% if none applies.
+- **Airports** (`GET /api/airports`, public): Read-only seeded airports with search, country and city filters (FLT-02).
+- **Flights** (`/api/flights`): The airline's moderator (or an admin with `airlineId`) creates a flight in each airport's **local time**; it is stored in UTC (FLT-03). Departure must be in the future, arrival after departure, and a flight number cannot repeat for the same airline on the same date. Edit times of a Scheduled flight; airports are locked once any seat is held or booked (FLT-05). Cancel a Scheduled flight (FLT-06): the bookings module cancels its bookings with a 100% refund and notifies passengers.
+- **Cabins** (`/api/flights/:id/cabins`): Economy, Premium Economy, Business and First, each at most once per flight, with seats, price, free bags and max kg per bag (FLT-04). Seats can never go below held plus booked seats, and price changes never affect existing bookings (FLT-05).
+- **Search** (`GET /api/flights/search`, public): One-way or round trip; adults (12+), children (2-11) and infants (under 2, pay 10%, take no seat, at most one per adult); cabin, airline and price filters; sort by price, duration or departure time; 10 results per page (FLT-11, FLT-12, FLT-15). Only Scheduled flights of active airlines with enough free seats are shown.
+- **Details** (`GET /api/flights/:id`, public): Local departure and arrival times, duration, cabins with seats left, baggage and cancellation policies (FLT-17).
+- **Moderator view**: `GET /api/flights/:id/bookings` lists the flight's bookings and seats left per cabin, and `GET /api/flights/:id/passengers/export` downloads the passenger list as CSV (FLT-29). Own airline only.
+- **Status**: A flight becomes `Departed` automatically once its departure time passes (FLT-30).
+- **Time zones** (GEN-06): Every flight time is returned as UTC, local time and the airport's time zone.
+- **Seat inventory**: Holding, confirming and releasing seats is atomic, so held plus booked seats can never exceed a cabin's capacity. Member 3's bookings use these methods.
+
 ## Flight Bookings & Itinerary Budgeting (Member 3)
 
 - **Flight bookings** (`/api/flight-bookings`): Booking summary before payment (FLT-19, FLT-21), atomic 10-minute seat hold so seats can never be overbooked, with a job that releases expired holds (FLT-22). After booking is `Confirmed` with a unique reference and a PDF e-ticket (FLT-23). The user can list their bookings as Upcoming, Past and Cancelled (FLT-25) and cancel one after seeing the refund from the airline's tiers (FLT-26). Ownership is enforced (other users get 404).
