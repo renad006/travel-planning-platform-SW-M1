@@ -54,6 +54,17 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Bonus, seat selection** (FLT-28): `GET` and `PATCH /api/flight-bookings/:id/seat`. Up to 3 picks per passenger, closes 24 hours before departure, remaining seats are auto-assigned.
 - **Bonus, change flight** (FLT-27): `change-options`, `PATCH` and `DELETE /api/flight-bookings/:id/change-flight`. Same price or cheaper is applied at once (cheaper is refunded). A more expensive flight waits 10 minutes for payment of the difference.
 
+## Hotels & Hotel Booking (Member 4)
+
+- **Hotels** (`/api/hotels`): An admin creates a hotel and its moderator edits the profile and check-in and check-out times (HTL-01, HTL-09). The city must be in the seeded city list (GEN-12). Public details page (HTL-02). Photos with `POST` and `DELETE /api/hotels/:id/photos`, JPG or PNG, 5 MB, at most 5 (GEN-08). Tiers with `PUT /api/hotels/:id/policies` (HTL-10).
+- **Rooms** (`/api/hotels/:id/rooms/...`): Add, edit, set bookable date ranges, block dates, deactivate or delete a room. Changes that touch a Confirmed or Pending reservation are rejected (HTL-03 to HTL-06). `GET /api/hotels/:id/availability` shows each room as Available, Booked (with reference) or Blocked (HTL-08).
+- **Search** (`GET /api/hotels/search`, public): City or country, dates, guests, rooms, price and rating filters and sorting (HTL-11, HTL-12). `GET /api/hotels/:id/rooms/available` lists free rooms with the stay price (HTL-15).
+- **Hotel bookings** (`/api/hotel-bookings`): Book several rooms in one reservation (HTL-16). A unique room-and-night lock prevents double booking. Rooms are held for 10 minutes and a job releases expired holds (HTL-18). Payments confirms the booking with a unique `HTL-` reference (HTL-17). Upcoming, Past and Cancelled lists (HTL-20).
+- **Cancellation** (`GET .../refund-preview`, `POST .../cancel`): The user sees the refund, then cancels before check-in. The rooms are released and Payments creates the refund (HTL-21).
+- **Moderator view** (`GET /api/hotels/:id/reservations`): Reservations of the moderator's own hotel only (HTL-22).
+- **Bonus:** Link a booking to an itinerary day (ITN-27, `/api/itineraries/:id/days/:dayId/bookings`) and favourites (BON-02, `/api/favourites`).
+- **Test helpers:** `test-confirm` and `test-complete` under `/api/hotel-bookings/:id/` (admin only) skip Stripe.
+
 ## Payments & Refunds (Member 5)
 
 - **Payments** (`/api/payments`): Accept booking policies (PAY-01), create a payment 
