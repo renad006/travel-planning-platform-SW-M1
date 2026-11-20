@@ -11,3 +11,1330 @@ Guide me step by step through repository and project setup (GitHub repo, branche
 How the output was used:
 Followed the steps to create the repo, develop branch, branch ruleset and root files.
 ================================================
+================================================
+Date: 2026-10-31
+Student: Renad
+Tool: Claude
+Related Requirement: Task 1 (MongoDB Atlas, environment setup)
+Prompt:
+Guide me to create the Atlas cluster, database user and network access, and connect NestJS using MONGODB_URI. (Later: debug "querySrv ECONNREFUSED".)
+How the output was used:
+Created the cluster, user and IP access list; fixed a local DNS problem by using the non-SRV connection string in my local .env.
+================================================
+
+================================================
+Date: 2026-11-02
+Student: Renad
+Tool: Claude
+Related Requirement: Task 1 (main.ts, error handling, Swagger); GEN server-side validation and consistent error responses
+Prompt:
+Help me configure main.ts (global prefix, cookie-parser, CORS, ValidationPipe), write a global exception filter with the shape statusCode/message/error/timestamp/path, and set up Swagger with cookie auth.
+How the output was used:
+Implemented and tested each piece in the browser; fixed the path field to use originalUrl.
+================================================
+
+================================================
+Date: 2026-11-02
+Student: Renad
+Tool: Claude
+Related Requirement: Task 1 (module folders); ACC roles and statuses
+Prompt:
+Create the empty module folders for the other members and the shared enums (role, account status, provider type, booking status).
+How the output was used:
+Created the folders with .gitkeep and the four enum files. The booking status list is a proposal still to be agreed with Members 3, 4 and 5.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-01, ACC-05, ACC-09, ACC-13 (schema foundation)
+Prompt:
+Write the User schema (hashed password hidden by default, lockout fields, status, moderator assignment) with a users service and module.
+How the output was used:
+Created the schema, service and module; profile fields and rules are assumptions to verify against the requirements sheet.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-08; pagination used by ACC-14
+Prompt:
+Write a pagination DTO, a standard paginated response shape and an image-upload validator.
+How the output was used:
+Added them to common/ for the other members to reuse; allowed image types and max size are defaults to verify.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-04, ACC-06 (session), role-based authorization
+Prompt:
+Write the JWT strategy that reads the token from an httpOnly cookie and reloads the user from the database, plus the Public, Roles and CurrentUser decorators and global JwtAuthGuard and RolesGuard.
+How the output was used:
+Implemented and tested: protected routes return 401 in the standard error shape, and @Public() opens a route.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: FLT-01, HTL-01 (moderator scope); ACC-13
+Prompt:
+Write a provider-scope helper so a moderator can only manage their own assigned airline or hotel.
+How the output was used:
+Added a @ProviderScope decorator and a global guard with unit tests; Members 2 and 4 will use the decorator on their routes.
+================================================
+
+================================================
+Date: 2026-11-03
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-07 (audit logging)
+Prompt:
+Write a global AuditService with a schema (actor, role, action, target, metadata, timestamp) and a log() method other members can call.
+How the output was used:
+Created the schema, service, global module and a unit test; other members will call auditService.log() for refunds, moderation and admin actions.
+================================================
+================================================
+Date: 2026-11-11
+Student: Renad
+Tool: Claude
+Related Requirement: Project-wide setup (Member 1); GEN-12, ACC, GEN-07
+Prompt:
+Role: senior NestJS + Mongoose engineer. Milestone 1 backend, graded via Swagger.
+Stack: NestJS, TS, @nestjs/mongoose, passport-jwt, bcrypt, class-validator, cookie-parser, @nestjs/swagger.
+Rules:
+- Follow pasted requirement text exactly. No invented limits. Ask only if truly ambiguous.
+- Backend enforces all validation/authz.
+- JWT (access + refresh) only in httpOnly/Secure/SameSite cookies. Never in body.
+- Global JwtAuthGuard, @Public() opt-out, loads user from DB each request, rejects suspended/deactivated.
+- Never return password hash. bcrypt only.
+- Error shape: {statusCode, message, error, timestamp, path}.
+- Admin actions -> AuditService.log(). Moderation/suspension/provider events -> NotificationsService.notify().
+- Swagger: @ApiTags, @ApiProperty on DTO fields, @ApiCookieAuth, response codes, requirement IDs in descriptions.
+How the output was used:
+Saved as the standing instructions of my Claude Project so every Member 1 task follows the same rules. Used it to add the Country, City and Attraction schemas and idempotent seeds from the real mock CSVs next to the existing Airport seed.
+================================================
+================================================
+Date: 2026-11-12
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-13
+Prompt:
+Write the admin-only endpoint POST /api/admin/moderators that creates an airline or hotel moderator linked to exactly one existing provider, with a generated temporary password and mustChangePassword set.
+How the output was used:
+Added the admin module, DTO and service; the temporary password is returned once and the action is audit-logged. Tested in Swagger: 201 for admin, 404 for an unknown provider, 409 for a duplicate email, 403 for non-admins.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-13 (force password change at first login)
+Prompt:
+Enforce server-side that an account with a temporary password can only change its password, log out or read /auth/me until it changes the password.
+How the output was used:
+Added a global MustChangePasswordGuard after JwtAuthGuard with 5 unit tests. Tested in Swagger: 403 on other routes, 200 after change-password.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-07a
+Prompt:
+Write POST /api/admin/users/:id/reset-password so an admin can reset a user's password, with an audit log entry and a notification to the user.
+How the output was used:
+Added the endpoint to the admin module; it generates a temporary password, sets mustChangePassword, audit-logs and notifies. Tested in Swagger: 200, 404 for an invalid id, old password rejected, and the guard blocks the user until they change it.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-07
+Prompt:
+Write GET /api/admin/audit-logs for admins with pagination and filters for actor, action, target and date range, reusing the shared pagination helper.
+How the output was used:
+Added findAll to AuditService, a query DTO and the route. Tested in Swagger: filters and pagination work, from after to returns 400, a moderator gets 403.
+================================================
+================================================
+Date: 2026-11-14
+Student: Renad
+Tool: Claude
+Related Requirement: GEN-01 (in-app notifications)
+Prompt:
+Write the notification endpoints for the current user: a paginated list with an unread filter, mark one notification as read, and mark all as read, with an ownership check on every access, reusing the shared pagination helper.
+How the output was used:
+Added the DTO, service methods, controller and module registration. Tested in Swagger: list returns only my own notifications, marking another user's notification returns 403, an unknown id returns 404, and read-all returns the number updated.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Renad
+Tool: Claude
+Related Requirement: Payments setup requested by Member 5 (rawBody and Stripe configuration)
+Prompt:
+Enable rawBody in main.ts for Stripe webhook signature verification and add the Stripe secret key, Stripe webhook secret and default currency keys to configuration.ts, reading from environment variables, with placeholders in .env.example.
+How the output was used:
+Passed { rawBody: true } to NestFactory.create, added stripe.secretKey, stripe.webhookSecret and defaultCurrency (defaults to USD) to the config, and added DEFAULT_CURRENCY to .env.example. The build passed, the server started and login still returned 200. Told Member 5 the key names and that the payments module was not yet registered in AppModule.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-04, ACC-05, ACC-07a, ACC-12, ACC-15, ACC-16 (testing)
+Prompt:
+Give me a step by step testing plan for my part in Swagger: registration failures, lockout and unlock, suspended and deactivated login, 401 and 403 cases, immediate block after suspension, password reset, and provider deactivation and reactivation.
+How the output was used:
+Ran every test in Swagger. Duplicate email 409, weak password 400, no token 401, normal user on an admin endpoint 403. Lockout: attempts 1 to 4 returned 401 and attempt 5 returned 403, and login worked again after the lock expired. Deactivated account login returned 403. Admin password reset worked and the temporary password forced a password change. Deactivating an airline hid its flights from search and reactivating brought them back. Found a provider left deactivated since an earlier test and reactivated it.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Renad
+Tool: Claude
+Related Requirement: Swagger documentation (ACC-01, ACC-04, ACC-05, ACC-06, ACC-08, ACC-09, ACC-11, ACC-12, ACC-19)
+Prompt:
+Add @ApiResponse decorators for the success and error codes (400, 401, 403, 409) on the auth and users controllers, with requirement IDs in the descriptions, without changing any logic.
+How the output was used:
+Replaced both controllers with the decorated versions, formatted with Prettier, and the build passed. Swagger now lists the error codes that were previously shown as undocumented.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Renad
+Tool: Claude
+Related Requirement: README (Member 1 delivery)
+Prompt:
+Complete the README setup steps (environment variables, seed command, start and Swagger) and add a section documenting my auth, accounts and admin work with the requirement IDs.
+How the output was used:
+Checked the real seed script name and the variable names in .env.example before writing, then replaced the README with the final version and opened a docs PR.
+================================================
+================================================================================
+Date: 2026-11-17
+Student: Renad
+Tool: Claude
+Related Requirement: ACC-07, GEN-01-B
+Prompt:
+Help me add email support to the NestJS backend: an SMTP mail service
+(tested with an Ethereal inbox), forgot-password and reset-password by
+email with a single-use expiring token stored only as a hash, and an
+email copy of every in-app notification.
+How the output was used:
+Used the design for MailService, the reset-token flow (hashed token,
+30-minute expiry, atomic single use, generic response for unknown
+emails) and the best-effort email copy inside NotificationsService.
+I reviewed the code, ran the build and tests, and verified the flows
+manually in Swagger.
+================================================================================
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-01, FLT-02
+
+Prompt:
+Review my Airlines & Flights backend module (schemas, DTOs, controller,
+service, module) against the project requirements sheet and the official
+PDF. Check airline creation, airport listing, and logo upload for every
+business rule, and tell me exactly what's missing or wrong.
+
+How the output was used:
+Used the review to confirm airline creation (admin-only), airport listing
+with search/country/city filters, and ownership checks on
+PATCH /api/airlines/:id were implemented correctly. Fixed inconsistent
+error handling in updateAirline (was returning 400 for every error,
+including duplicate-key conflicts which should be 409).
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: GEN-08
+
+Prompt:
+Check my airline logo upload endpoint against GEN-08 (JPG/PNG only,
+max 5 MB, one logo per airline, served by URL). Is checking the MIME
+type from the client enough, or do I need to validate the file itself?
+
+How the output was used:
+Learned that a client-supplied MIME type can be spoofed, so added a
+file-signature check (PNG/JPEG magic bytes) in the service layer in
+addition to the Multer fileFilter. Also discovered the uploads folder
+was never registered as a static asset in main.ts, so logo URLs would
+404 - flagged this to the teammate who owns main.ts.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-03
+
+Prompt:
+My create-flight endpoint takes local departure/arrival times and must
+store them in UTC using each airport's IANA time zone (from the seeded
+Airports.csv). Review my implementation for correctness, and check the
+duplicate-flight-number rule: no duplicate flight number for the same
+airline on the same departure date.
+
+How the output was used:
+Used Luxon's DateTime.fromISO with the airport's zone to convert local
+time to UTC correctly, and added a departureLocalDate field + compound
+unique index (airlineId + flightNumber + departureLocalDate) to enforce
+the duplicate rule. Fixed a bug where "MS 777" and "MS777" were treated
+as different flight numbers by normalizing (stripping spaces/dashes)
+before the uniqueness check.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-04, FLT-08, FLT-09
+
+Prompt:
+Check my cabin inventory schema (FLT-04: fixed cabin categories, seats,
+price, free bags, max bag weight) and my airline baggage/cancellation
+policy schemas (FLT-08: extra bag price and max extra bags; FLT-09:
+cancellation tiers by days-before-departure with refund percentage,
+using the highest applicable threshold). Confirm the refund calculation
+logic is correct.
+
+How the output was used:
+Confirmed the unique index on (flightId, cabinClass) correctly enforces
+"each cabin category used at most once per flight". Implemented and
+verified pickRefundPercentage(): picks the tier with the highest
+daysBeforeDeparture that is <= days remaining, defaults to 0% if no
+tier applies.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-05, FLT-06
+
+Prompt:
+Review my updateFlight and cancelFlight logic: editing a Scheduled
+flight should lock the airports once any booking exists, never let
+seat count drop below held+booked seats, and cancelling should be
+atomic and emit an event so the bookings module can refund passengers
+and release holds. Is my event-based approach between modules correct
+for a NestJS project with multiple independent schemas per team member?
+
+How the output was used:
+Implemented flight.events.ts with typed event payloads
+(flight.cancelled, flight.schedule-changed, flight.departed) emitted
+via EventEmitter2, so the bookings module (owned by a teammate) can
+react without my module depending on their schema. Learned that
+EventEmitterModule.forRoot() must be registered exactly once for the
+whole app or events silently stop reaching listeners in other modules.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-11, FLT-12, FLT-15
+
+Prompt:
+Review my flight search aggregation: one-way and round-trip, passenger
+types (adult 12+, child 2-11, infant under 2, infants pay 10% and take
+no seat, infants cannot exceed adults), optional cabin filter, inclusive
+min/max price filter, sorting by price/duration/departure time, and
+pagination. Check for edge cases I might have missed.
+
+How the output was used:
+Fixed missing validation: infants > adults now correctly returns 400,
+minPrice > maxPrice returns 400, and a search with no results returns
+200 with an empty array and a "No flights found" message instead of
+an error. Confirmed available seats are computed as
+totalSeats - heldSeats - bookedSeats everywhere, never stored directly,
+so holds and bookings can never collectively exceed capacity.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-30
+
+Prompt:
+I have a @Cron job that should mark Scheduled flights as Departed once
+their departure time passes, but it doesn't seem to run. What am I
+missing in a NestJS project?
+
+How the output was used:
+
+Found that ScheduleModule.forRoot() was never imported anywhere in the
+app, so @Cron decorators were silently ignored (no error). Added
+ScheduleModule.forRoot() to my own FlightsModule (since I'm not allowed
+to edit the shared app.module.ts) and confirmed the cron job now runs
+every minute.
+================================================
+
+Fixed the error in flights.controller.ts by changing import { Response } from 'express' to import type { Response } from 'express'.
+================================================
+
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-29 (Passenger Export)
+Prompt:
+Write an endpoint for moderators to export a CSV of passengers for a flight. Since Member 3 hasn't finished the FlightBooking schema yet, mock the data for now and use Express @Res to download the file.
+How the output was used:
+Added the GET /api/flights/:id/passengers/export endpoint with @Header decorators for text/csv. Used mock data to verify the CSV generation works correctly in Swagger.
+================================================
+================================================
+Date: 2026-11-09
+Student: Arwa
+Tool: Claude
+Related Requirement: FLT-29
+
+Prompt:
+My flights.controller.ts fails to compile on the passenger CSV export
+endpoint: the Response type from 'express' gives an error when used with
+@Res(). How do I fix it?
+
+How the output was used:
+Fixed the error by changing import { Response } from 'express' to
+import type { Response } from 'express', because Response is only used
+as a type there and the project's TypeScript settings require type-only
+imports for that.
+================================================
+================================================
+Date: 2026-11-11
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-19, FLT-22, FLT-23, FLT-25, FLT-26
+Prompt:
+I'm member 3, help me set up the repo, review Member 2's flights module, and implement the FlightBooking Mongoose schema (user, segments, passengers, status, holdExpiresAt,
+total price, unique reference, policiesAcceptedAt).
+How the output was used:
+Reviewed and adapted the generated schema (flight-booking.schema.ts), checked it compiles, and committed it on feature/FLT-22-flight-booking-schema.
+================================================
+
+================================================
+Date: 2026-11-12
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-19, FLT-21, FLT-12
+Prompt:
+Design and implement the flight booking summary: validate passengers (type vs date of birth,
+at least one adult, infants <= adults), extra baggage limits from the airline policy, and
+compute the booking price on the server in integer cents.
+How the output was used:
+Reviewed the pure business rules and their unit tests, the DTOs and the quote endpoint
+(POST /flight-bookings). Checked every validation case in Swagger before pushing.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-22
+Prompt:
+How should a concurrency-safe 10-minute seat hold work on top of Member 2's atomic seat
+methods, including round trips and automatic expiry of unpaid holds?
+How the output was used:
+Implemented POST /flight-bookings/hold reusing FlightsService.reserveSeats (single atomic
+conditional update), rollback of the first leg if the second fails, and a cron job that
+expires holds. Registered ScheduleModule in AppModule.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, FLT-23, GEN-11
+Prompt:
+Implement Member 5's PayableBookingService contract for flight bookings (findPayable,
+confirmAfterPayment, expireHold, markPoliciesAccepted and the PAYABLE_FLIGHT_BOOKINGS token).
+confirmAfterPayment must be atomic and return false when the booking is no longer pending.
+How the output was used:
+Mapped FlightBooking fields to PayableBooking, implemented the atomic confirmation (reference
+and e-ticket generation, seats held -> booked, idempotent for a webhook redelivery of the same
+payment), exported the DI token from the module, added the Completed lifecycle job and
+hasUpcomingConfirmedBookings (ACC-12). Tested with a local-only helper that is not committed.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-25, ACC-11
+Prompt:
+Implement "my flight bookings" grouped Upcoming / Past / Cancelled with pagination and strict
+ownership checks.
+How the output was used:
+Added GET /flight-bookings and GET /flight-bookings/:id. Other users get 404. Passport numbers
+are masked in lists. Expired holds are detected on read.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-23, GEN-06
+Prompt:
+Generate a downloadable e-ticket PDF for a confirmed booking with airport-local times.
+How the output was used:
+Added GET /flight-bookings/:id/e-ticket using pdfkit. Checked the PDF layout and the local
+time zones by opening the downloaded file.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-26, PAY-03
+Prompt:
+Implement cancelling a confirmed flight booking (atomic cancellation, seat release) without
+doing any refund maths, because Payments (Member 5) calculates and issues the refund.
+How the output was used:
+Added POST /flight-bookings/:id/cancel. It emits a flight-booking.cancelled event carrying the
+amount, the cancellation anchor and the tiers for Payments. Refund fields stay empty.
+================================================
+
+================================================
+Date: 2026-11-16
+Student: Suha
+Tool: Claude
+Related Requirement: FLT-05, FLT-06 (booking side), GEN-11
+Prompt:
+How should bookings react when Member 2's module cancels a flight or changes its schedule?
+How the output was used:
+Added listeners for flight.cancelled (cancel confirmed bookings as the airline, release seats,
+notify, expire pending holds, emit the cancelled event for Payments) and flight.schedule-changed
+(update booking times, notify passengers).
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: PAY-04
+Prompt:
+Replace the hardcoded platform currency in the flight bookings with the shared defaultCurrency config, as requested by Member 5.
+How the output was used:
+Reviewed the two-file change and checked that the booking summary still shows USD.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-14, ITN-16
+Prompt:
+Implement budget entries (food, accommodation, in-city transport, activities) and intercity transport costs for itinerary days, without changing Member 6's itinerary code.
+How the output was used:
+Added a separate module in itineraries/budget with atomic updates on Member 6's Itinerary model. Checked every add, edit, delete and validation case in Swagger and Compass before pushing.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-09, ITN-14
+Prompt:
+Member 6 asked for the budget subtotal calculation (ITN-09) and for ItineraryBudgetService to be exported from its module.
+How the output was used:
+Added pure subtotal calculations per currency with unit tests, exported the service, and protected booking-linked budget entries (ITN-27) from edit and delete. Checked that the existing endpoints still work in Swagger.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-20
+Prompt:
+Implement setting an itinerary Public or Private without changing Member 6's itinerary code, and without touching the admin isHidden flag.
+How the output was used:
+Added PATCH /itineraries/:id/visibility in a separate sharing module with an atomic owner-only update. Checked every case in Swagger and Compass before pushing.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Suha
+Tool: Claude
+Related Requirement: ITN-21
+Prompt:
+Implement public search (keyword, country, city, duration) and the read-only view of public itineraries for guests and users, without changing Member 6's itinerary code.
+How the output was used:
+Added GET /shared-itineraries and GET /shared-itineraries/:id in the sharing module. Excluded private, admin-hidden and inactive-author itineraries, and returned no user ids, emails or booking ids. Tested every filter and the privacy rules in Swagger before pushing.
+================================================
+
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: ITN-18 (currency conversion with exchange rates)
+Prompt: 
+Build a currency conversion module for the Travel Planning Platform backend (NestJS + MongoDB). 
+It should fetch exchange rates from FXRatesAPI, cache one snapshot per day and fall back to the last cached snapshot if the provider is down, expose endpoints to list supported currencies and convert an amount, and export a service other modules (budget summary) can use.
+How the output was used: 
+I used the generated fx-rates module (client, service, controller, schema, DTO and unit tests) and registered FxRatesModule in app.module.ts. I added my FXRATES_API_KEY to my local .env, and tested the real API response, the conversion endpoint and the cached snapshot in Swagger and Compass.
+================================================
+
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: ITN-14 / ITN-18 
+Prompt: 
+Add a budget summary endpoint for an itinerary: totals by category and by day, converted to the user's preferred currency using the FX rates service, showing the rate date, and listing amounts that cannot be converted instead of guessing them.
+How the output was used: 
+I used the generated summary builder, DTO, service method and controller route, and registered FxRatesModule in the budget module. I tested conversion, the unconverted amounts, access rules and error cases in Swagger.
+================================================
+
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: ITN-21 
+Prompt: 
+Add a clone endpoint so a user can copy a public itinerary into their own account as a private copy with all days, activities and budget, independent from the original, and crediting the original author.
+How the output was used: 
+I used the generated clone builder, service method and route, and tested public/private access, independence of the copy, ownership and the 401/404 cases in Swagger with two accounts.
+================================================
+
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-26 
+Prompt: 
+Add a cancellation preview endpoint for flight bookings that shows the refund the user would get if they cancel now, using Payments' calculateRefund and the policy saved on the booking, without changing anything.
+How the output was used: 
+I used the generated service method and route, and tested the preview for a confirmed booking, repeated calls, a cancelled booking and another user's booking in Swagger.
+================================================
+
+================================================
+Date: 2026-11-18
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-28 
+Prompt: 
+Add seat selection for confirmed flight bookings after payment. Choosing is optional and seats are auto-assigned if not chosen; 
+changes close 24 hours before departure and each passenger can pick a seat at most 3 times in total; seats are free; 
+no double booking of a seat even with simultaneous requests; 
+infants without seats; per-flight seats for round trips; seats released on cancellation. 
+Also remove the resolved TODO about expired holds, since Payments already cancels the PaymentIntent on the expired event.
+How the output was used: 
+I used the generated seat layout, seat assignment collection, service, scheduled auto-assign job and controller, and tested the seat map, picking and changing seats, the 3-pick limit, conflicts, infants, other users, the 24-hour cut-off and cancellation in Swagger and Compass.
+================================================
+
+================================================
+Date: 2026-11-19
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-27 
+Prompt: 
+Implement the read-only part of FLT-27: list the flights a user can switch a Confirmed booking to (same airline, route and cabin, enough seats, round-trip order respected, passenger types and bag weight still valid).
+How the output was used:
+change-rules.ts (pure rules + tests), flight-changes.service/controller, DTO.
+================================================
+
+================================================
+Date: 2026-11-19
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-27 (same price or cheaper)
+Prompt: 
+Implement PATCH /flight-bookings/:id/change-flight for a Confirmed booking: same airline, route and cabin; same price or cheaper only; update the booking totals and history, move the seats between the two flights, clear the FLT-28 seats of the old flight, tell Payments about the refund through an event, and notify the user.
+How the output was used:
+flight-changes service and controller, ChangeFlightDto, booking change history, fare-reduced event.
+================================================
+
+================================================
+Date: 2026-11-19
+Student: Suha 
+Tool: Claude
+Related Requirement: FLT-27 (pay the difference for a more expensive flight)
+Prompt: 
+Finish FLT-27: when the new flight costs more, hold its seat for 10 minutes and keep the booking on the old flight until the price difference is paid; add the methods Payments needs to charge and confirm it, an expiry job, and a way to cancel the pending change.
+How the output was used:
+pending change on the booking, payable-change contract, expiry job, DELETE /change-flight, extra payment ids in the cancelled event.
+================================================
+
+================================================
+Date: 2026-11-20
+Student: Suha 
+Tool: Claude
+Related Requirement: README 
+Prompt: 
+Write the Member 3 section of the README (flight bookings, seat selection, flight changes, itinerary budgeting, exchange rates, sharing), consistent with the other members' sections.
+How the output was used:
+README.md section text. Checked against the routes and rules in the code.
+================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: Team leader review (all members), PAY-01
+Prompt:
+I am Member 5 and team leader. Give me CMD commands to pull the latest
+develop and list the project state (branches, commits, routes, requirement
+IDs in code) so I can see which requirements are finished before I start
+my own part.
+How the output was used:
+Ran the commands, pasted the output back, and used the summary to see that
+auth, users, notifications, audit, seeds and flights are merged, hotels
+only has HTL-01, and no booking, admin or payment code exists yet.
+================================================================================
+
+================================================================================
+Date: 2026-11-11
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Using the shared code (User schema, enums, AuditService, NotificationsService,
+pagination helpers, Airline and Hotel schemas), write the Mongoose schemas
+for payments: Payment, Refund, PolicyAcceptance and ProcessedStripeEvent.
+Store no card data, only Stripe IDs, amount, currency and status.
+How the output was used:
+Created the enums file and four schema files inside backend/src/payments,
+checked that npm run build passes, and committed them to
+feature/PAY-01-payment-schemas.
+================================================================================
+
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-02, PAY-03
+Prompt:
+Read Member 3 flight-booking schema and write the booking contract that
+Payments needs from the flight and hotel booking modules: a PayableBooking
+shape plus findPayable, confirmAfterPayment, expireHold and
+markPoliciesAccepted, and injection tokens for each booking module.
+How the output was used:
+Added payable-booking.interface.ts inside backend/src/payments, checked the
+build, and will share it with Members 3 and 4 so their services match what
+the payment webhook and refund code will call.
+================================================================================
+================================================================================
+Date: 2026-11-12
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ACC-14, ACC-15, ACC-16, ACC-17
+Prompt:
+Read Member 1's admin module and the hotel booking schema, then add admin
+endpoints without clashing with them: accounts list with search and filters,
+suspend and reactivate accounts, deactivate and reactivate providers, and a
+read-only list of flight and hotel bookings.
+How the output was used:
+Added admin-management service, controller and two DTOs inside backend/src/admin,
+registered them in admin.module.ts, tested the endpoints in Swagger, and
+reviewed the audit and notification calls.
+================================================================================
+================================================================================
+Date: 2026-11-14
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-03
+Prompt:
+Write a refund calculator: given cancellation tiers (daysBeforeDeparture,
+refundPercentage), a booking amount and a cancellation anchor date, calculate
+the refund percentage and amount. The rule is the tier with the highest
+days-before threshold not exceeding days remaining, else 0%. Provider-initiated
+cancellations always refund 100%.
+How the output was used:
+Created refund-calculator.ts and refund-calculator.spec.ts inside
+backend/src/payments, ran the 6 tests, confirmed the build passes, and
+committed to feature/PAY-01-payment-schemas.
+================================================================================
+================================================================================
+Date: 2026-11-14
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-02
+Prompt:
+Add a policy acceptance endpoint: given a booking type and booking id, look up
+the booking through the PayableBookingService contract, enforce ownership and
+that policies weren't already accepted, save a PolicyAcceptance record with
+the policy snapshot, then call markPoliciesAccepted on the booking service.
+How the output was used:
+Created dto/accept-policy.dto.ts, payments.service.ts, payments.controller.ts
+and payments.module.ts inside backend/src/payments, fixed an import-type
+error flagged by VS Code, confirmed the build passes, and committed to
+feature/PAY-01-payment-schemas.
+================================================================================
+================================================
+Date: 2026-11-18
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-03
+Prompt:
+GET /api/refunds/:id was never implemented — no RefundsController existed. 
+Help me build it following the existing PaymentsController pattern 
+(owner-or-admin access, 404 if not found or not yours).
+How the output was used:
+Used the generated RefundsController + RefundsService.getRefund() method as-is,
+ registered it in PaymentsModule, verified it compiles and returns the correct
+refund for both the owner and an admin.
+================================================
+Date: 2026-11-18
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ACC-17
+Prompt:
+GET /api/admin/bookings returns currency: null for every hotel booking entry while 
+flight bookings show the real currency. Help me find and fix the bug in 
+admin-management.service.ts.
+How the output was used:
+Traced it to a hardcoded null literal in the hotel-booking mapping and a missing currency 
+field on the LeanHotelBooking interface. Applied the fix, rebuilt, and confirmed 
+GET /api/admin/bookings now shows the correct currency for hotel entries.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: HTL-26 (Bonus)
+Prompt:
+Implement the HTL-26 bonus requirement: hotel moderator replies to a review. Needs an 
+optional reply field on the Review schema, a POST /api/reviews/:id/reply endpoint 
+restricted to the review's own hotel moderator, reusing the same ownership rule as 
+the existing ProviderScopeGuard.
+How the output was used:
+Added the reply field to the Review schema, a ReplyReviewDto, a ReviewsService.reply() 
+method that checks the moderator's assignedProviderId against the review's hotelId 
+(same pattern as ProviderScopeGuard), and the controller endpoint. 
+Tested end-to-end: correct moderator can reply, a different hotel's moderator gets a 403.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: BON-01 (Bonus) - Admin analytics: bookings and revenue per provider 
+over a period
+Prompt: Design and implement an admin analytics endpoint that groups bookings and revenue 
+by provider (airline or hotel) over an optional date range, where revenue is succeeded 
+payments minus refunds issued in the same period, using the existing Payment and Refund 
+schemas.
+How the output was used: Used the suggested approach - two MongoDB aggregation pipelines 
+(one grouping succeeded Payments by providerId/bookingType, one grouping REFUNDED Refunds 
+via a $lookup join to payments since Refund has no direct providerId field), 
+merged by provider+bookingType, with provider display names resolved from 
+the Airline/Hotel collections. Implemented as AdminAnalyticsQueryDto, 
+AdminManagementService.getAnalytics(), and GET /api/admin/analytics. 
+Fixed a TypeScript union-type error on Model.findById by branching into separate 
+airlineModel/hotelModel calls instead of a shared model variable. 
+Fully tested via Swagger: verified grossRevenue/bookingsCount against raw payment documents 
+in MongoDB Compass (4 succeeded payments out of 6 total, correctly excluding pending 
+and cancelled), and verified the from/to date filter narrows results correctly against known 
+timestamps.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: GEN-01-B (Bonus) - Email the GEN-01 notification set plus moderator 
+invitations via SMTP
+Prompt: GEN-01-B was already largely implemented by Member 1 
+(NotificationsService.emailCopies() sends an email copy of every in-app notification 
+via MailService/SMTP). Check whether the remaining "moderator invitations" clause of 
+GEN-01-B is covered, and if not, wire it in.
+How the output was used: Found that AdminService.createModerator() (ACC-13) returned 
+the temporary password in the API response only, with no notification sent to the new 
+moderator - the one gap in GEN-01-B's coverage. Added a notificationsService.notify() 
+call after moderator creation with a MODERATOR_INVITED notification containing the login 
+email and temporary password, since no other channel exists yet to hand the new moderator 
+their credentials. This automatically also sends the email copy through the existing 
+emailCopies() hook. Tested via Swagger: created a moderator, confirmed the Ethereal SMTP 
+email was sent (preview link in server logs), then logged in as the moderator, changed the 
+temporary password, and confirmed the MODERATOR_INVITED notification appears 
+via GET /api/notifications.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ITN-28 (Bonus)
+Prompt: Add an endpoint to export/print an itinerary as a PDF (GET /api/itineraries/:id/pdf), 
+reusing the existing e-ticket PDFKit pattern from flight-bookings, without changing any 
+existing itinerary endpoints or logic owned by another team member.
+How the output was used: Created a new itineraries.pdf.ts renderer (PDFKit document builder 
+covering title, countries, start date, days, activities, transport costs, and budget 
+entries/subtotals) and added a single new downloadPdf endpoint to itineraries.controller.ts. 
+No existing file or method was modified. Built with 0 TypeScript errors and tested live via 
+Swagger against itinerary "Summer in Europe" — downloaded PDF confirmed to render title, 
+countries, start date, duration, and day details correctly.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: ITN-27 (Bonus add-on)
+Prompt: ITN-27's hotel-linking half was already built by Member 4, but the flight half 
+(required by the spec's "flights and hotels" wording) was never implemented, with Member 3's 
+flight-booking schema initially pending. With Member 6's explicit permission to add only 
+what's missing without touching her existing logic, add a flight-linking branch to linkBooking() 
+that is fully additive and leaves the hotel path untouched.
+How the output was used: Widened LinkBookingDto.type to accept 'flight', injected 
+FlightBookingsService into ItinerariesService, and added an isolated flight branch in 
+linkBooking() (checks Confirmed/Completed status, overlap of the day with the flight's 
+departure-to-arrival window, duplicate-link rejection, then pushes an intercity-transport budget 
+entry). Also widened the BudgetEntry.category enum to include 'intercity-transport', which 
+ItineraryBudgetService already expected but which no entry could previously use. Built with 0 
+TypeScript errors; tested live via Swagger: a Confirmed one-way flight booking (CAI-DXB) was 
+linked to a matching itinerary day (budget correctly showed 250 USD under intercity-transport), 
+a duplicate link attempt returned 409, linking to a day outside the flight's date returned 400, 
+and unlinking correctly removed the budget entry. No existing method or file belonging to Member 4 
+or Member 6 was modified.
+================================================
+================================================
+Date: 2026-11-19
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: FLT-27 (Payment integration, Payments module)
+Prompt: Member 3 (Suha) handed off a spec for the payment side of FLT-27 (paying or 
+refunding the fare difference when a confirmed flight booking's flight is changed), 
+scoped entirely within the Payments module (my own PAY-01-04 tasks). Build: a changeId 
+field linking a Payment to a specific flight change, a POST /payments/flight-change 
+endpoint, webhook branching to apply the change after successful payment, and new 
+refund-event handlers for a fare dropping (FARE_REDUCED), a pending paid change being 
+abandoned (CHANGE_EXPIRED), and cancellation needing to split a refund across multiple 
+payments.
+How the output was used: Added Payment.changeId; added 
+createFlightChangePayment()/POST flight-change endpoint; branched 
+retryPayment()/onPaymentSucceeded() on payment.changeId to apply the flight change 
+after payment succeeds, with automatic full refund if applying the change fails; added 
+RefundsService.handleFlightFareReduced() (instant 100% refund, no payment needed) and 
+handleFlightChangeExpired() (cancels the Stripe PaymentIntent); rewrote 
+handleFlightCancelled() to iterate [...extraPaymentIds, paymentId] newest-first, 
+refunding each payment up to its own remaining (unrefunded) amount until the total 
+owed is exhausted. Reused the existing PAYABLE_FLIGHT_CHANGES injection token and 
+event-emitter pattern already in place, so no changes were needed to PaymentsModule's 
+wiring. Built with 0 TypeScript errors; tested live end-to-end against real Stripe 
+test-mode PaymentIntents/Refunds via the actual webhook (not simulated): a "pay" 
+change ($50 difference) completed and applied correctly; a "refund" change ($100 fare 
+drop) applied instantly
+================================================
+================================================
+Date: 2026-11-06
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: Setup (Member 4)
+Prompt:
+Read the project description, onboarding guide and team notes, clone the repo, and work out whether Member 4 can start now or must wait for another member.
+How the output was used:
+Cloned the repo, pulled develop in GitHub Desktop, created backend/.env from .env.example (not committed), started the backend and logged in through Swagger.
+================================================
+
+================================================
+Date: 2026-11-07
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-01, HTL-03, HTL-09
+Prompt:
+Guide me step by step to write the Hotel and Room schemas, their DTOs, and the create-hotel, edit-hotel and create-room endpoints, restricted by role and provider scope.
+How the output was used:
+Wrote the schemas, DTOs, service and controller. Tested in Swagger: create hotel 201, invalid body 400, edit refused for a non-moderator 403. Room and time endpoints could not be tested yet because there is no moderator account.
+================================================
+
+================================================
+Date: 2026-11-07
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-04, HTL-10, HTL-05, HTL-06, HTL-08
+Prompt:
+Write room availability ranges (non-overlapping, end date is the checkout day), embedded cancellation tiers, room edit, date blocking, deactivate and delete rules, and the room status view.
+How the output was used:
+Added the schemas, overlap checks against reservations, and the endpoints. Not tested yet because they are moderator-only and no moderator account exists.
+================================================
+
+================================================
+Date: 2026-11-10
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-11, HTL-12, HTL-15, HTL-02
+Prompt:
+Write hotel search by city or country, dates, guests and rooms, with price and rating filters and sorting, plus the free-rooms list and the public hotel details endpoint.
+How the output was used:
+Moved the free-room logic into one shared helper used by search and rooms-available. Tested in Swagger: public access works, missing location and past dates return 400, empty results return 200. Added averageRating and ratingCount fields for Member 5 to update.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-16, HTL-18, HTL-17
+Prompt:
+Design and write multi-room booking as one operation that prevents overlapping reservations, holds rooms for 10 minutes, expires unpaid holds, and exposes a confirm method for the payment code.
+How the output was used:
+Reviewed and approved the design: one lock record per room per night under a unique index, created together with the reservation in one MongoDB transaction, plus a one-minute expiry timer. Tested only that unauthenticated and admin requests are refused. The booking itself is not tested yet.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-20, HTL-21, HTL-22
+Prompt:
+Write the user's reservation list (Upcoming, Past, Cancelled), cancellation with a refund computed from the hotel's tiers, and the moderator's reservations view.
+How the output was used:
+Added the endpoints and stored the refund amount on the booking for Member 5 to refund through Stripe. Not tested yet because they need a user and a moderator account.
+================================================
+
+================================================
+Date: 2026-11-11
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: Debugging and merging
+Prompt:
+Find why the Hotels group in Swagger did not show a new route, and resolve the merge conflicts after merging the cancellation-tiers branch.
+How the output was used:
+A type-check found missing imports in the HTL-08 controller, fixed in a separate commit. Resolved three merge conflicts by keeping both sides' code, and confirmed the backend compiles.
+================================================
+
+================================================
+Date: 2026-11-12
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-03, HTL-04, HTL-05, HTL-06, HTL-08, HTL-09 (testing and merging)
+Prompt:
+Merge develop into the hotel branches, resolve the conflicts, and test the room endpoints in Swagger with the admin login before pushing.
+How the output was used:
+Merged develop into HTL-03, HTL-09 and HTL-08 and resolved the conflicts by keeping both sides. Tested in Swagger: create room 201, duplicate name 409, bad price 400, availability overlap 409, backwards range 400, edit room, block, status view, delete 204, deactivate 200.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-02, HTL-11, HTL-12, HTL-15 (search fix and rename)
+Prompt:
+Find why the hotel search rejected a Swagger request with sortBy=createdAt, fix it, and rename the rating field to match Member 5's name.
+How the output was used:
+Found that the example inherited from the shared pagination DTO made Swagger send createdAt. Set the example to price. Renamed averageRating to avgRating in the schema and in the rating filter and sort. Tested search (found hotel, 5 guests empty, price filters, missing location 400), free rooms and hotel details.
+================================================
+
+================================================
+Date: 2026-11-13
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-16, HTL-18, HTL-20, HTL-22 (booking tests)
+Prompt:
+Test booking, holds, my reservations and the hotel reservation list, using a registered test user.
+How the output was used:
+Registered a test user and told the team. Booked room 201 (201), double booking 409, checkout day free, unpaid bookings hidden from my reservations, bad ID 404, hotel reservation list, deactivate and delete refused with reservations (409), and an expired hold released the room.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-10, HTL-17 (payable booking contract)
+Prompt:
+Implement Member 5's payable booking contract for hotel bookings, with the new HotelBooking fields, a policy snapshot, the four service methods, the module token and a Completed status, comparing against the flight version.
+How the output was used:
+Merged HTL-10, added the payment and refund fields and a policy snapshot at booking time, implemented the four methods and the token, made confirmAfterPayment idempotent after comparing with the flight version, and added a Completed sweep and two admin-only test routes to be removed before submission. Tested confirm (second call 409) and the upcoming to past lists. findPayable, markPoliciesAccepted and expireHold through Payments were not exercised.
+================================================
+
+================================================
+Date: 2026-11-14
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-05 (edit availability range)
+Prompt:
+Move the edit-availability commit to its own branch from develop, test it and open a small PR.
+How the output was used:
+Cherry-picked the one commit, merged develop, and tested 200, backwards range 400, wrong ID 404 and 409 when a pending reservation would fall outside the range.
+================================================
+
+================================================================================
+Date: 2026-11-16
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-03
+Prompt:
+Suha's flight booking cancellation (FLT-26) emits flight-booking.cancelled and
+flight-booking.expired events instead of calling Payments directly. Build a
+RefundsService that listens for both: on cancellation, calculate the refund
+with the existing refund-calculator (100% if cancelled by the airline, tiered
+otherwise), create a Refund record, call Stripe's Refunds API, and notify the
+user; on hold expiry, cancel the open Stripe PaymentIntent.
+How the output was used:
+Created refunds.service.ts inside backend/src/payments, registered it and
+NotificationsModule in payments.module.ts, confirmed the build passes, and
+committed to feature/PAY-01-payment-schemas.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01
+Prompt:
+Implement PAY-01: POST /api/payments (create a Stripe PaymentIntent for a
+Pending Payment booking, blocked unless policies were accepted and the hold
+hasn't expired), POST /api/payments/:id/retry (cancel the old intent, create
+a new one), GET /api/payments/:id (owner or admin), and POST /api/payments/webhook
+(@Public, raw-body signature verification, idempotent via ProcessedStripeEvent,
+handles succeeded/failed/canceled, refunds in full if the hold expired before
+the payment landed).
+How the output was used:
+Rewrote payments.service.ts and payments.controller.ts, added
+dto/create-payment.dto.ts inside backend/src/payments, confirmed the build
+passes, and committed to feature/PAY-01-payment-schemas.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: HTL-23, HTL-24
+Prompt:
+Implement HTL-23 and HTL-24: a Review schema (one review per Completed hotel
+reservation, rating 1-5 plus optional text up to 1000 characters, enforced by
+a unique index on bookingId), POST /api/hotel-bookings/:id/review,
+PATCH /api/reviews/:id, DELETE /api/reviews/:id (owner-only, 404 if not yours),
+and GET /api/hotels/:id/reviews (public, paginated, newest first, with the
+hotel's avgRating and ratingCount). The hotel's rating fields are recalculated
+by a MongoDB aggregation over its reviews on every create, edit and delete.
+How the output was used:
+Created the reviews module (schema, two DTOs, service, controller, module)
+inside backend/src/reviews, confirmed the build passes, and committed to
+feature/PAY-01-payment-schemas.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Malak Haytham
+Tool: Claude
+Related Requirement: PAY-01, PAY-03
+Prompt:
+Fix a backend startup crash ("Neither apiKey nor config.authenticator provided") caused by PaymentsService and RefundsService constructing the Stripe client unconditionally, and align payments.service.ts getPayment/assertPayable/processed-event signatures with the rest of the module.
+How the output was used:
+Made the Stripe client nullable in both PaymentsService and RefundsService, added a warning log plus a requireStripe() guard that throws ServiceUnavailableException for HTTP-triggered payment methods, and had RefundsService log and mark refunds FAILED instead of crashing when Stripe is not configured, mirroring the existing MailService graceful-degradation pattern. Verified with npm run build (0 errors) and a clean npm run start:dev with all payments routes mapped.
+
+================================================================================
+Date: 2026-11-17
+Student: Nourhan 
+Tool: Claude
+Related Requirement: ITN-01, ITN-03
+Prompt:
+Design the Itinerary mongoose schema (embedded days/activities/budget/transport) and implement
+the CRUD + list endpoints for ITN-01 and ITN-03, with ownership checks returning 404 for non-owners.
+How the output was used:
+Created backend/src/itineraries with the schema, DTOs, service, controller and module;
+registered ItinerariesModule in app.module.ts; tested all 12 Swagger cases (create 201,
+list 200, get 200, update 200, empty title 400, unknown id 404, admin cross-owner 404,
+unauthenticated 401, delete 200, post-delete 404).
+================================================================================
+================================================================================
+
+Date: 2026-11-17
+Student: Nourhan 
+Tool: Claude
+Related Requirement: ITN-05, ITN-07, ITN-08, ITN-09
+Prompt:
+Implement day management for itineraries: add day (max 60), edit city/notes, delete day (renumbering), 
+reorder day, and automatically calculate calendar dates based on itinerary start date. 
+How the output was used:
+Added Create/Update/Reorder DTOs, service methods, and controller endpoints. Tested in Swagger: 
+add 201, max 60 error 400, edit 200, reorder 200, delete 200, invalid reorder 400. Verified dates 
+increment correctly from the start date.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Nourhan 
+Tool: Claude
+Related Requirement: ITN-10, ITN-12
+Prompt:
+Implement Activity CRUD (name, description, time, cost) and Activity Image upload/removal. 
+Reused Member 2's Multer diskStorage pattern for the file interceptor (GEN-08 shared rule), 
+saving to uploads/activities.
+How the output was used:
+Added Create/Update DTOs, Service methods, and Controller endpoints including the FileInterceptor. 
+Tested in Swagger: add activity 201, edit 200, upload image 201 (verified accessible via static URL), 
+remove image 200, delete activity 200.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Nourhan
+Tool: Claude
+Related Requirement: ITN-25, ITN-26
+Prompt:
+Implement integration endpoints for itineraries: search flights from day 1's city (ITN-26) and search hotels for a specific city group's dates (ITN-25). Reused Member 2's FlightsService and Member 4's HotelsService. Looked up city IDs and airport codes using Member 1's reference data.
+How the output was used:
+Added the integration methods to ItinerariesService, injected FlightsService and HotelsService, exported HotelsService from HotelsModule, and created the DTOs/endpoints. Tested in Swagger: ITN-26 returned 200 (empty array because no seeded flights on that date), ITN-25 returned 200 and successfully found the "Nile View Hotel" in Cairo.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: Nourhan
+Tool: Claude
+Related Requirement: GEN-10 (Admin moderation)
+Prompt:
+Add the isHidden boolean field (default false) to the Itinerary schema and expose it in the API responses (toSummary and toDetail) so Member 7's admin dashboard can hide and unhide itineraries.
+How the output was used:
+Updated the schema and the service mapping. Left ITN-09 subtotal logic to Member 3 to avoid merge conflicts. Tested in Swagger: GET endpoints now return "isHidden": false.
+================================================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: PAY-04, HTL-01, GEN-08
+Prompt:
+Member 5 asked for one currency source: read the hotel booking currency from config instead of the hardcoded USD, then add hotel photo upload and removal like the flight logo and itinerary image uploads.
+How the output was used:
+Read the platform currency from config in the booking service and removed the schema default, with a fallback for older bookings. Added POST and DELETE hotel photo routes (JPG or PNG, 5 MB, at most 5, random file names, atomic cap, file removed when refused). Tested in Swagger: upload 201, text file 400, 6 MB file 413, sixth photo 409, remove 200, removing it again 404, and no stray files on disk.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-21, PAY-03
+Prompt:
+Write hotel reservation cancellation with a refund preview, following how flights hand refunds to Payments through events, and use Member 5's refund calculator instead of my own math.
+How the output was used:
+Added hotel-booking.cancelled and hotel-booking.expired events, a refund preview, and a cancel that claims the booking and frees its nights in one transaction. Found the HTL-21 commit had never been pushed and merged it into the final branch. Tested with curl: pending 409, preview 100% of 200, cancel 200, cancelling again 409, the nights were released and the same dates could be booked again. The refund itself needs the hotel listeners in RefundsService, which Member 5 has not added yet.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-08, GEN-12, ITN-25, HTL-18
+Prompt:
+Fix the last hotel issues: malformed ids returning 500, deactivated rooms shown as Available, hotel cities that do not match the seeded city list the itinerary search uses, and prove that simultaneous bookings cannot double-book.
+How the output was used:
+Added a pipe that answers 400 for a malformed id on 13 hotel routes, reported deactivated rooms as Blocked, and made hotel create and edit check the city against the seeded cities and its country. Tested with curl: bad ids 400, unknown ids 404, wrong city or country 400, and five simultaneous bookings of the same room gave one 201 and four 409.
+================================================
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: HTL-01 to HTL-22
+Prompt:
+Create a hotel moderator and test moderator scope, then check every hotel requirement in the Mandatory and Bonus sheets against what is built.
+How the output was used:
+Created a hotel moderator for the test hotel, changed its temporary password and tested 15 cases: own hotel 200, another hotel 403, admin-only and user-only routes 403, and the must-change-password block before the first change. Compared the sheets with the code: everything for HTL-01 to HTL-22 is built and tested except the refund creation for HTL-21, which waits on Member 5's hotel listeners.
+================================================
+
+
+================================================
+Date: 2026-11-17
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: ITN-27
+Prompt:
+Link a booked hotel to an itinerary day so it feeds the budget. Nourhan agreed I could add it to her itineraries module.
+How the output was used:
+Added POST and DELETE routes under itineraries/:id/days/:dayId/bookings. A link needs a Confirmed or Completed reservation of the user whose stay covers that day, and can only be made once per itinerary. It adds an accommodation budget entry marked with the booking id and two optional fields on the budget entry schema. Tested with curl: link 201 with a 300 USD entry, linking twice 409, a day outside the stay 400, unknown or malformed ids 404 and 400, a Pending Payment booking 409, unlink 200 and 404 the second time. Only the hotel half is done, the flight half waits for Suha.
+================================================
+
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-01
+Prompt:
+Help me set up the initial NestJS folder structure, create Mongoose schemas for Post, Comment, and Like, and write the DTO and controller for creating a blog post.
+How the output was used:
+Used the generated schemas and DTO directly. Adjusted the controller route to /api/posts and used the @CurrentUser decorator to grab the authorId.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-02, BLG-03, BLG-04
+Prompt:
+Add endpoints to get all published posts with pagination and search, get my posts, update a post, and delete a post. Include ownership checks.
+How the output was used:
+Implemented the GET, PATCH, and DELETE routes. Added logic to check if the current user's ID matches the authorId before allowing edits or deletions.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-05, BLG-07
+Prompt:
+Help me implement the comment system. I need to add a comment to a published post, and edit/delete comments. How do I split the controllers so the route is /api/comments/:id instead of /api/posts/comments/:id?
+How the output was used:
+Created CreateCommentDto with a 500 char limit. Added comment logic to BlogService, created a separate CommentsController, and used $inc to update the post's commentCount and interactionScore.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <Noor>
+Tool: deepseek
+Related Requirement: BLG-06
+Prompt:
+How do I implement a like/unlike system in MongoDB that prevents a user from liking the same post twice under concurrent requests?
+How the output was used:
+Created a Like schema with a unique compound index. Used a try/catch block to catch MongoDB duplicate key errors (code 11000) and return a 409 Conflict. Used $inc for atomic counter updates.
+================================================================================
+================================================================================
+Date: 2026-11-17
+Student: <noor>
+Tool: deepseek
+Related Requirement: BLG-06
+Prompt:
+Help me implement like and unlike functionality for blog posts. How do I prevent a user from liking the same post twice at the database level?
+How the output was used:
+Created endpoints in the controller and service. Used a unique compound index in MongoDB and caught the duplicate key error (code 11000) to throw a 409 Conflict.
+================================================================================
+================================================================================
+Date: 2026-11-18
+Student: <Noor>
+Tool: deepseek
+Related Requirement: GEN-09, GEN-10, GEN-07
+Prompt:
+Help me build the reporting and admin moderation system. Users need to report content (once), and admins need to view open reports and resolve them by dismissing, hiding, or deleting the content. Admin actions must be logged and the author notified.
+How the output was used:
+Created Report schema with a unique compound index. Built AdminReportsController. Added resolve logic to hide/delete posts and comments, update report status, call AuditService.log, and trigger NotificationsService.notify for the author.
+================================================================================
+================================================================================
+Date: 2026-11-18
+Student: Noor
+Tool: deepseek
+Related Requirement: GEN-10, GEN-07
+Prompt:
+Help me add direct admin hide and delete endpoints for posts and comments. I need to ensure the author is notified and the action is logged in the audit trail.
+How the output was used:
+Added directModerateContent to ReportsService, added direct hide/delete routes to AdminReportsController, and integrated AuditService and NotificationsService using the correct object signature.
+================================================================================
+================================================================================
+Date: 2026-11-18
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-13, BLG-02
+Prompt:
+Help me add the bonus endpoint to attach an itinerary to a post. Also, fix the GET single post endpoint so authors can see their own drafts. Since the global @Public() guard skips auth entirely, I need a way to optionally check the cookie.
+How the output was used:
+Added itineraryId to the Post schema and injected the Itinerary model to verify ownership. Created an OptionalAuthGuard that catches JWT errors and returns null instead of 401, applied it to GET /api/posts/:id. Verified both features in Swagger.
+================================================================================
+================================================================================
+Date: 2026-11-19
+Student: Nourhan
+Tool: Claude
+Related Requirement: ITN-09
+Prompt:
+Integrate Member 3's ItineraryBudgetService to calculate group budget subtotals for consecutive days in the same city. Also enforce currency validation on activity costs to prevent "UNSPECIFIED" currency errors.
+How the output was used:
+Imported ItineraryBudgetModule into ItinerariesModule, injected ItineraryBudgetService into ItinerariesService, and replaced calculateDates with calculateDaysWithSubtotals. Added @ValidateIf to CreateActivityDto. Tested in Swagger: 400 without currency, 201 with currency, and GET itinerary returns groupDayCount and groupBudgetSubtotal from Member 3's service.
+================================================================================
+
+================================================
+Date: 2026-11-19
+Student: Malak Elsadek
+Tool: Claude
+Related Requirement: BON-02
+Prompt:
+Write the bonus favourites list for hotels and public itineraries in its own folder, so no other member's code is touched.
+How the output was used:
+Added a favourites module: save a hotel or a public itinerary (a hotel must exist and be active, an itinerary must be public and not hidden, saving twice is refused), list my favourites newest first with a short summary and an optional type filter, and remove one. Registered it with one line in app.module.ts. Tested with curl, 25 checks: save 201, duplicate 409, unknown or malformed ids 404 and 400, a private itinerary 404, the list drops an itinerary that turns private and shows it again when it is public, removing twice 404, admin 403 and logged out 401.
+================================================
+

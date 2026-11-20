@@ -157,3 +157,5 @@ dist/
 coverage/
 uploads/
 .DS_Store
+
+backend/uploads/

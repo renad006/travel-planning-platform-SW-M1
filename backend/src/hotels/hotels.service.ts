@@ -1,0 +1,533 @@
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { unlink } from 'fs/promises';
+import { isValidObjectId, Model } from 'mongoose';
+import { basename, join } from 'path';
+import { HOTEL_PHOTO_DIR, HOTEL_PHOTO_URL_PREFIX, MAX_HOTEL_PHOTOS } from './hotel-photo-upload';
+import { CreateHotelDto } from './dto/create-hotel.dto';
+import { City, CityDocument } from '../reference-data/schemas/city.schema';
+import { Hotel, HotelDocument } from './schemas/hotel.schema';
+import { UpdateHotelDto } from './dto/update-hotel.dto';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { Room, RoomDocument } from './schemas/room.schema';
+import { CreateAvailabilityDto } from './dto/create-availability.dto';
+import { RoomAvailability, RoomAvailabilityDocument, } from './schemas/room-availability.schema';
+import { UpdateRoomDto } from './dto/update-room.dto';
+import { BookingStatus } from '../common/enums/booking-status.enum';
+import { HotelBooking, HotelBookingDocument, } from '../hotel-bookings/schemas/hotel-booking.schema';
+import { RoomBlock, RoomBlockDocument } from './schemas/room-block.schema';
+import { RoomStatusQueryDto } from './dto/room-status-query.dto';
+import { SearchHotelsQueryDto } from './dto/search-hotels-query.dto';
+import { RoomsAvailableQueryDto } from './dto/rooms-available-query.dto';
+import { HotelDetailsQueryDto } from './dto/hotel-details-query.dto';
+import { parseStay } from '../common/utils/stay.util';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import {
+    buildPaginatedResponse,
+    getSkip,
+} from '../common/utils/pagination.helper';
+import { UpdatePoliciesDto } from './dto/update-policies.dto';
+
+@Injectable()
+export class HotelsService {
+    constructor(
+        @InjectModel(Hotel.name) private readonly hotelModel: Model<HotelDocument>,
+        @InjectModel(Room.name) private readonly roomModel: Model<RoomDocument>,
+        @InjectModel(RoomAvailability.name) private readonly availabilityModel: Model<RoomAvailabilityDocument>,
+        @InjectModel(RoomBlock.name) private readonly blockModel: Model<RoomBlockDocument>,
+        @InjectModel(HotelBooking.name)private readonly bookingModel: Model<HotelBookingDocument>,
+        @InjectModel(City.name) private readonly cityModel: Model<CityDocument>,
+    ) {}
+
+    // GEN-12: the itinerary search (ITN-25) finds hotels by the seeded city id, so a hotel's
+    // city has to come from that list and its country has to be that city's country
+    private async assertKnownCity(cityId: string, countryCode: string) {
+        const city = await this.cityModel.findOne({ cityId }).lean().exec();
+        if (!city) {
+            throw new BadRequestException(
+                `cityId "${cityId}" is not in the city list (for example "cairo")`,
+            );
+        }
+        if (city.countryCode !== countryCode.toUpperCase()) {
+            throw new BadRequestException(
+                `countryCode "${countryCode}" does not match the city "${cityId}" (${city.countryCode})`,
+            );
+        }
+    }
+
+    async create(dto: CreateHotelDto) {
+        await this.assertKnownCity(dto.cityId, dto.countryCode);
+        return this.hotelModel.create(dto);
+    }
+
+    findById(id: string) {
+        return this.hotelModel.findById(id).exec();
+    }
+
+    async update(id: string, dto: UpdateHotelDto) {
+        if (dto.cityId || dto.countryCode) {
+            const current = await this.findById(id);
+            if (!current) return null; // the controller answers 404
+            await this.assertKnownCity(
+                dto.cityId ?? current.cityId,
+                dto.countryCode ?? current.countryCode,
+            );
+        }
+        return this.hotelModel
+            .findByIdAndUpdate(id, dto, { returnDocument: 'after' })
+            .exec();
+    }
+
+    async createRoom(hotelId: string, dto: CreateRoomDto) {
+        if (!(await this.findById(hotelId))) {
+            throw new NotFoundException('Hotel not found');
+        }
+        try {
+            return await this.roomModel.create({ ...dto, hotelId });
+        } catch (e) {
+        // 11000 = duplicate key: same room name in the same hotel
+        if ((e as { code?: number }).code === 11000) {
+            throw new ConflictException(
+                'A room with this name already exists in this hotel',
+            );
+        }
+        throw e;
+        }
+    }
+
+    async addAvailability(
+        hotelId: string,
+        roomId: string,
+        dto: CreateAvailabilityDto,
+    ) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+            if (!room) {
+                throw new NotFoundException('Room not found in this hotel');
+            }
+        const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
+        if (endDate <= startDate) {
+            throw new BadRequestException('End date must be after start date');
+        }
+        // Two ranges overlap when each starts before the other ends
+        const overlap = await this.availabilityModel.exists({
+            roomId,
+            startDate: { $lt: endDate },
+            endDate: { $gt: startDate },
+        });
+        if (overlap) {
+            throw new ConflictException(
+                'This range overlaps an existing availability range',
+            );
+        }
+        return this.availabilityModel.create({ roomId, startDate, endDate });
+    }
+
+    async updateRoom(hotelId: string, roomId: string, dto: UpdateRoomDto) {
+        const room = await this.roomModel
+            .findOneAndUpdate({ _id: roomId, hotelId }, dto, {
+                returnDocument: 'after',
+            })
+            .exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        return room;
+    }
+
+    // HTL-05: change a bookable range, without orphaning reservations made inside it
+    async updateAvailability(
+        hotelId: string,
+        roomId: string,
+        availabilityId: string,
+        dto: CreateAvailabilityDto,
+    ) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        const range = isValidObjectId(availabilityId)
+            ? await this.availabilityModel.findOne({ _id: availabilityId, roomId: room._id })
+            : null;
+        if (!range) {
+            throw new NotFoundException('Availability range not found');
+        }
+        const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
+        if (endDate <= startDate) {
+            throw new BadRequestException('End date must be after start date');
+        }
+        const overlap = await this.availabilityModel.exists({
+            _id: { $ne: range._id },
+            roomId: room._id,
+            startDate: { $lt: endDate },
+            endDate: { $gt: startDate },
+        });
+        if (overlap) {
+            throw new ConflictException(
+                'This range overlaps another availability range',
+            );
+        }
+        // a Confirmed or Pending Payment reservation inside the old range must stay inside the new one
+        const orphaned = await this.bookingModel.exists({
+            'rooms.roomId': room._id,
+            status: { $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT] },
+            checkIn: { $lt: range.endDate },
+            checkOut: { $gt: range.startDate },
+            $or: [{ checkIn: { $lt: startDate } }, { checkOut: { $gt: endDate } }],
+        });
+        if (orphaned) {
+            throw new ConflictException(
+                'A reservation would fall outside the new range',
+            );
+        }
+        range.startDate = startDate;
+        range.endDate = endDate;
+        return range.save();
+    }
+
+    async blockRoom(
+        hotelId: string,
+        roomId: string,
+        dto: CreateAvailabilityDto,
+    ) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
+        if (endDate <= startDate) {
+            throw new BadRequestException('End date must be after start date');
+        }
+        // HTL-06: refuse if a Confirmed or Pending Payment reservation overlaps
+        const clash = await this.bookingModel.exists({
+            'rooms.roomId': room._id,
+            status: {
+                $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+            },
+                checkIn: { $lt: endDate },
+                checkOut: { $gt: startDate },
+            });
+            if (clash) {
+                throw new ConflictException(
+                    'This range overlaps an existing reservation',
+                );
+        }
+        return this.blockModel.create({ roomId, startDate, endDate });
+    }
+
+    async deactivateRoom(hotelId: string, roomId: string) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        // HTL-06: refuse if a Confirmed or Pending Payment reservation is not over yet
+        const clash = await this.bookingModel.exists({
+            'rooms.roomId': room._id,
+            status: {
+                $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+            },
+            checkOut: { $gt: new Date() },
+        });
+        if (clash) {
+            throw new ConflictException(
+                'This room has current or upcoming reservations',
+            );
+        }
+        room.isActive = false;
+        return room.save();
+    }
+
+    async deleteRoom(hotelId: string, roomId: string) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        // HTL-06: only rooms that were never reserved can be deleted
+        if (await this.bookingModel.exists({ 'rooms.roomId': room._id })) {
+            throw new ConflictException(
+                'This room has been reserved before, deactivate it instead',
+            );
+        }
+        await this.availabilityModel.deleteMany({ roomId: room._id });
+        await this.blockModel.deleteMany({ roomId: room._id });
+        await room.deleteOne();
+    }
+
+    async roomStatuses(hotelId: string, query: RoomStatusQueryDto) {
+        const from = new Date(query.from);
+        const to = new Date(query.to);
+        if (to <= from) {
+            throw new BadRequestException('"to" must be after "from"');
+        }
+        const rooms = await this.roomModel.find({ hotelId }).exec();
+        // shortcut: three queries per room, fine for a hotel's room count
+        return Promise.all(
+            rooms.map(async (room) => {
+                const booking = await this.bookingModel
+                    .findOne({
+                        'rooms.roomId': room._id,
+                        status: {
+                            $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+                        },
+                        checkIn: { $lt: to },
+                        checkOut: { $gt: from },
+                    })
+                .exec();
+                if (booking) {
+                    return {
+                        roomId: room.id as string,
+                        name: room.name,
+                        status: 'Booked',
+                        reference: booking.reference ?? null,
+                    };
+                }
+                // a deactivated room cannot be booked, so it is reported as Blocked (HTL-06, HTL-08)
+                if (!room.isActive) {
+                    return { roomId: room.id as string, name: room.name, status: 'Blocked' };
+                }
+                const blocked = await this.blockModel.exists({
+                    roomId: room._id,
+                    startDate: { $lt: to },
+                    endDate: { $gt: from },
+                });
+                // a room with no availability range covering the dates cannot be booked
+                const covered = await this.availabilityModel.exists({
+                    roomId: room._id,
+                    startDate: { $lte: from },
+                    endDate: { $gte: to },
+                });
+                return {
+                    roomId: room.id as string,
+                    name: room.name,
+                    status: blocked || !covered ? 'Blocked' : 'Available',
+                };
+            }),
+        );
+    }
+
+    // Rooms that are bookable, not blocked and not reserved for the whole stay
+    private async freeRooms(rooms: RoomDocument[], checkIn: Date, checkOut: Date) {
+        const roomIds = rooms.map((r) => r._id);
+        // shortcut: one bookable range must cover the whole stay, adjacent ranges are not joined
+        const [covered, blocked, booked] = await Promise.all([
+            this.availabilityModel
+                .distinct('roomId', {
+                    roomId: { $in: roomIds },
+                    startDate: { $lte: checkIn },
+                    endDate: { $gte: checkOut },
+                })
+                .exec(),
+            this.blockModel
+                .distinct('roomId', {
+                    roomId: { $in: roomIds },
+                    startDate: { $lt: checkOut },
+                    endDate: { $gt: checkIn },
+                })
+                .exec(),
+            this.bookingModel
+                .distinct('rooms.roomId', {
+                    'rooms.roomId': { $in: roomIds },
+                    status: {
+                        $in: [BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT],
+                    },
+                    checkIn: { $lt: checkOut },
+                    checkOut: { $gt: checkIn },
+                })
+                .exec(),
+        ]);
+        const coveredSet = new Set(covered.map(String));
+        const unavailable = new Set([...blocked, ...booked].map(String));
+        return rooms.filter(
+            (r) => coveredSet.has(r.id as string) && !unavailable.has(r.id as string),
+        );
+    }
+
+    // HTL-22: the moderator's view of their hotel's reservations (Expired attempts are hidden)
+    async reservations(hotelId: string, query: PaginationQueryDto) {
+        const filter = { hotelId, status: { $ne: BookingStatus.EXPIRED } };
+        const [items, total] = await Promise.all([
+            this.bookingModel
+                .find(filter)
+                .sort({ checkIn: -1 })
+                .skip(getSkip(query))
+                .limit(query.limit)
+                .populate('userId', 'name email')
+                .populate('rooms.roomId', 'name type')
+                .exec(),
+            this.bookingModel.countDocuments(filter),
+        ]);
+        return buildPaginatedResponse(items, total, query);
+    }
+
+    async details(id: string, query: HotelDetailsQueryDto) {
+        if (!query.checkIn !== !query.checkOut) {
+            throw new BadRequestException('Provide both checkIn and checkOut');
+        }
+        const hotel = await this.hotelModel.findOne({ _id: id, isActive: true });
+        if (!hotel) {
+            throw new NotFoundException('Hotel not found');
+        }
+        if (!query.checkIn || !query.checkOut) {
+            return hotel.toJSON();
+        }
+        const availableRooms = await this.availableRooms(id, {
+            checkIn: query.checkIn,
+            checkOut: query.checkOut,
+        });
+        return { ...hotel.toJSON(), availableRooms };
+    }
+
+    async availableRooms(hotelId: string, query: RoomsAvailableQueryDto) {
+        const { checkIn, checkOut } = parseStay(query.checkIn, query.checkOut);
+        const hotel = await this.hotelModel.findOne({ _id: hotelId, isActive: true });
+        if (!hotel) {
+            throw new NotFoundException('Hotel not found');
+        }
+        const rooms = await this.roomModel
+            .find({ hotelId, isActive: true })
+            .sort({ pricePerNight: 1 })
+            .exec();
+        const nights = Math.round(
+            (checkOut.getTime() - checkIn.getTime()) / (24 * 60 * 60 * 1000),
+        );
+        return (await this.freeRooms(rooms, checkIn, checkOut)).map((room) => ({
+            ...room.toJSON(),
+            nights,
+            totalPrice: room.pricePerNight * nights,
+        }));
+    }
+
+    async search(query: SearchHotelsQueryDto) {
+        if (!query.cityId && !query.countryCode) {
+            throw new BadRequestException('Provide a cityId or a countryCode');
+        }
+        const { checkIn, checkOut } = parseStay(query.checkIn, query.checkOut);
+
+        const hotels = await this.hotelModel
+            .find({
+                isActive: true,
+                ...(query.cityId && { cityId: query.cityId }),
+                ...(query.countryCode && {
+                    countryCode: query.countryCode.toUpperCase(),
+                }),
+            })
+            .sort({ name: 1 })
+            .exec();
+        const rooms = await this.roomModel
+            .find({ hotelId: { $in: hotels.map((h) => h._id) }, isActive: true })
+            .exec();
+        const freeByHotel = new Map<string, RoomDocument[]>();
+        for (const room of await this.freeRooms(rooms, checkIn, checkOut)) {
+            const key = room.hotelId.toString();
+            freeByHotel.set(key, [...(freeByHotel.get(key) ?? []), room]);
+        }
+
+        // enough free rooms, and the largest ones together fit all the guests
+        const matching = hotels
+            .map((hotel) => {
+                const free = freeByHotel.get(hotel.id as string) ?? [];
+                const capacity = free
+                    .map((r) => r.maxOccupancy)
+                    .sort((a, b) => b - a)
+                    .slice(0, query.rooms)
+                    .reduce((sum, n) => sum + n, 0);
+                const fits = free.length >= query.rooms && capacity >= query.guests;
+                // HTL-12: the hotel's price is its cheapest free room per night
+                const cheapestPrice = Math.min(...free.map((r) => r.pricePerNight));
+                return { hotel, fits, cheapestPrice };
+            })
+            .filter(
+                ({ hotel, fits, cheapestPrice }) =>
+                    fits &&
+                    (query.minPrice === undefined || cheapestPrice >= query.minPrice) &&
+                    (query.maxPrice === undefined || cheapestPrice <= query.maxPrice) &&
+                    // unrated hotels (avgRating null) are excluded by a rating filter
+                    (query.minRating === undefined ||
+                        (hotel.avgRating !== null &&
+                            hotel.avgRating >= query.minRating)),
+            );
+
+        const direction = query.sortOrder === 'asc' ? 1 : -1;
+        if (query.sortBy === 'price') {
+            matching.sort((a, b) => (a.cheapestPrice - b.cheapestPrice) * direction);
+        } else if (query.sortBy === 'rating') {
+            // unrated hotels sort as 0, so they come last when highest rating is first
+            matching.sort(
+                (a, b) =>
+                    ((a.hotel.avgRating ?? 0) - (b.hotel.avgRating ?? 0)) *
+                    direction,
+            );
+        }
+
+        const items = matching
+            .slice(getSkip(query), getSkip(query) + query.limit)
+            .map(({ hotel, cheapestPrice }) => ({ ...hotel.toJSON(), cheapestPrice }));
+        return buildPaginatedResponse(items, matching.length, query);
+    }
+
+    async setPolicies(id: string, dto: UpdatePoliciesDto) {
+        const thresholds = dto.cancellationTiers.map((t) => t.daysBefore);
+        if (new Set(thresholds).size !== thresholds.length) {
+            throw new BadRequestException(
+                'Each cancellation tier needs a unique days-before threshold',
+            );
+        }
+        const hotel = await this.hotelModel
+            .findByIdAndUpdate(
+                id,
+                { cancellationTiers: dto.cancellationTiers },
+                { returnDocument: 'after' },
+            )
+            .exec();
+        if (!hotel) {
+            throw new NotFoundException('Hotel not found');
+        }
+        return hotel;
+    }
+
+    // GEN-08: add one photo, at most 5 per hotel. The 'photos.4 does not exist' filter makes
+    // the cap hold even if two uploads arrive at the same moment.
+    async addPhoto(id: string, file?: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException('No image file provided');
+        }
+        const hotel = isValidObjectId(id)
+            ? await this.hotelModel
+                  .findOneAndUpdate(
+                      { _id: id, 'photos.4': { $exists: false } },
+                      { $push: { photos: `${HOTEL_PHOTO_URL_PREFIX}${file.filename}` } },
+                      { returnDocument: 'after' },
+                  )
+                  .exec()
+            : null;
+        if (!hotel) {
+            await unlink(file.path).catch(() => undefined); // the upload was refused, drop the file
+            const exists = isValidObjectId(id) && (await this.hotelModel.exists({ _id: id }));
+            if (!exists) {
+                throw new NotFoundException('Hotel not found');
+            }
+            throw new ConflictException(`A hotel can have at most ${MAX_HOTEL_PHOTOS} photos`);
+        }
+        return hotel;
+    }
+
+    async removePhoto(id: string, filename: string) {
+        const url = `${HOTEL_PHOTO_URL_PREFIX}${basename(filename)}`;
+        const hotel = isValidObjectId(id)
+            ? await this.hotelModel
+                  .findOneAndUpdate(
+                      { _id: id, photos: url },
+                      { $pull: { photos: url } },
+                      { returnDocument: 'after' },
+                  )
+                  .exec()
+            : null;
+        if (!hotel) {
+            throw new NotFoundException('Photo not found for this hotel');
+        }
+        await unlink(join(HOTEL_PHOTO_DIR, basename(filename))).catch(() => undefined);
+        return hotel;
+    }
+}
