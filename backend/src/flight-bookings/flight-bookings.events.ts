@@ -20,6 +20,11 @@ export const FLIGHT_BOOKING_EVENTS = {
    * the open PaymentIntent of that change.
    */
   CHANGE_EXPIRED: 'flight-booking.change-expired',
+  /**
+   * PAY-03: Payments finished processing a refund for this booking (fired once per payment
+   * refunded — FLT-27 can split one cancellation's refund across several payments).
+   */
+  REFUND_PROCESSED: 'flight-booking.refund-processed',
 } as const;
 
 export interface FlightBookingChangeExpiredEvent {
@@ -72,4 +77,12 @@ export interface FlightBookingExpiredEvent {
   bookingId: string;
   userId: string;
   paymentId?: string;
+}
+
+/** PAY-03: the confirmed outcome of a single refund issued against one of this booking's payments. */
+export interface FlightBookingRefundProcessedEvent {
+  bookingId: string;
+  refundId: string;
+  refundAmount: number;
+  refundPercent: number;
 }

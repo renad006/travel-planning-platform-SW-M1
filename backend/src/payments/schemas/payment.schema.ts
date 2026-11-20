@@ -35,6 +35,11 @@ export class Payment {
   // FLT-27: set only for a payment of a flight-change price difference
   @Prop({ type: Types.ObjectId, index: true })
   changeId?: Types.ObjectId;
+
+  // PAY-03: running total refunded against this payment — previously nothing tracked this,
+  // so a refunded payment still looked SUCCEEDED forever.
+  @Prop({ type: Number, default: 0, min: 0 })
+  refundedAmount: number;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'crypto';
 import { DateTime } from 'luxon';
@@ -52,6 +52,7 @@ import {
   FlightBookingChangeExpiredEvent,
   FlightBookingExpiredEvent,
 } from './flight-bookings.events';
+import type { FlightBookingRefundProcessedEvent } from './flight-bookings.events';
 import {
   ageOnDate,
   baggageFeeCents,
@@ -726,6 +727,33 @@ export class FlightBookingsService implements PayableBookingService {
         });
       }
     }
+  }
+
+  // ======================================================================
+  // PAY-03: reaction to Payments finishing a refund
+  // ======================================================================
+
+  /**
+   * PAY-03: Payments finished a refund for this booking — write the confirmed result onto the
+   * booking itself. Previously nothing did this, so cancellation.refundId/refundAmount/
+   * refundPercentage stayed null forever even after a successful Stripe refund.
+   * $inc on refundAmount (not $set): FLT-27 can split one cancellation's refund across several
+   * payments, firing this once per payment, so the total must accumulate, not overwrite.
+   */
+  @OnEvent(FLIGHT_BOOKING_EVENTS.REFUND_PROCESSED)
+  async handleRefundProcessed(
+    event: FlightBookingRefundProcessedEvent,
+  ): Promise<void> {
+    await this.bookingModel.updateOne(
+      { _id: this.toObjectId(event.bookingId) },
+      {
+        $set: {
+          refundId: new Types.ObjectId(event.refundId),
+          refundPercentage: event.refundPercent,
+        },
+        $inc: { refundAmount: event.refundAmount },
+      },
+    );
   }
 
   // ======================================================================

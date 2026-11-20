@@ -78,6 +78,8 @@ export class ItinerariesService {
     if (doc.days.length >= 60) {
       throw new BadRequestException('Itinerary cannot exceed 60 days');
     }
+    // ITN-05: city must be one of the predefined reference-data cities
+    await this.validateCityExists(dto.city);
     const newDay: ItineraryDay = {
       _id: new Types.ObjectId(),
       dayNumber: doc.days.length + 1,
@@ -96,10 +98,14 @@ export class ItinerariesService {
     const doc = await this.getOwnedDoc(userId, itineraryId);
     const day = doc.days.find((d) => d._id.toString() === dayId);
     if (!day) throw new NotFoundException('Day not found');
-    
-    if (dto.city !== undefined) day.city = dto.city;
+
+    if (dto.city !== undefined) {
+      // ITN-05: city must be one of the predefined reference-data cities
+      await this.validateCityExists(dto.city);
+      day.city = dto.city;
+    }
     if (dto.notes !== undefined) day.notes = dto.notes;
-    
+
     await doc.save();
     return this.toDetail(doc);
   }
@@ -388,6 +394,14 @@ export class ItinerariesService {
     const doc = await this.itineraryModel.findById(id).exec();
     if (!doc || doc.userId.toString() !== userId) throw new NotFoundException('Itinerary not found');
     return doc;
+  }
+
+  // ITN-05: a day's city must match one of the predefined reference-data cities
+  private async validateCityExists(cityName: string): Promise<void> {
+    const city = await this.cityModel.findOne({ name: new RegExp(`^${cityName}$`, 'i') }).lean();
+    if (!city) {
+      throw new BadRequestException(`City "${cityName}" is not in the predefined list of cities`);
+    }
   }
 
   private calculateDaysWithSubtotals(doc: ItineraryDocument) {

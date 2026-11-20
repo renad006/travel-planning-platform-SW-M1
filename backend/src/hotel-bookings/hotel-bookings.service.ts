@@ -8,7 +8,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, isValidObjectId, Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
@@ -19,6 +19,7 @@ import {
   HOTEL_BOOKING_EVENTS,
   type HotelBookingCancelledEvent,
   type HotelBookingExpiredEvent,
+  type HotelBookingRefundProcessedEvent,
 } from './hotel-bookings.events';
 import type {
   PayableBooking,
@@ -365,6 +366,35 @@ export class HotelBookingsService
     } finally {
       await session.endSession();
     }
+  }
+
+  // PAY-03: Payments confirmed the refund with Stripe — overwrite cancel()'s pre-calculated
+  // preview with the authoritative amount/percent, and write the refundId back (previously
+  // never set, so a hotel refund's result never reconciled with what Stripe actually did).
+  @OnEvent(HOTEL_BOOKING_EVENTS.REFUND_PROCESSED)
+  async handleRefundProcessed(
+    event: HotelBookingRefundProcessedEvent,
+  ): Promise<void> {
+    await this.bookingModel.updateOne(
+      { _id: event.bookingId },
+      {
+        $set: {
+          refundId: new Types.ObjectId(event.refundId),
+          refundPercentage: event.refundPercent,
+          refundAmount: event.refundAmount,
+        },
+      },
+    );
+  }
+
+  /** ACC-12 (Member 1): a user with upcoming Confirmed reservations cannot deactivate the account. */
+  async hasUpcomingConfirmedBookings(userId: string): Promise<boolean> {
+    const count = await this.bookingModel.countDocuments({
+      userId,
+      status: BookingStatus.CONFIRMED,
+      checkOut: { $gte: new Date() },
+    });
+    return count > 0;
   }
 
   // HTL-20: the user's reservations grouped as Upcoming, Past and Cancelled.
