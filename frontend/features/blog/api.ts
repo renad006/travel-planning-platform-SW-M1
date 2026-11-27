@@ -22,6 +22,13 @@ export async function getPostById(id: string) {
   return serverGet<Post>(`/api/posts/${id}`, { auth: false });
 }
 
+export async function getAuthorProfile(id: string, page: number = 1) {
+  return serverGet<any>(`/api/authors/${id}`, {
+    params: { page },
+    auth: false,
+  });
+}
+
 export async function getPostsByTag(tag: string, page: number = 1) {
   return serverGet<any>(`/api/tags/${tag}/posts`, {
     params: { page },
