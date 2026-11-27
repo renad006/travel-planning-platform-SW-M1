@@ -125,5 +125,5 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Reports & Moderation** (`/api/reports`, `/api/admin/reports`): Users can report content once (GEN-09). Admins can view open reports and resolve them by dismissing, hiding, or deleting the content (GEN-10). Admin actions are audited (GEN-07) and authors are notified.
 - **Bonus (BLG-13)**: Attach an itinerary to a post (`PATCH /api/posts/:id/itinerary`).
 
-## Blog & Community (Member 7)
 - **Public Blog List** (`/blog`): Dynamic SSR page showing published posts, with keyword search and pagination (BLG-02, BLG-09).
+- **Post Detail** (`/blog/[id]`): ISR page showing the full post content, tags, images, and metadata (BLG-02).

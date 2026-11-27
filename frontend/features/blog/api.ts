@@ -1,8 +1,8 @@
 import { serverGet } from '@/lib/api.server';
-import { PaginatedPosts } from './types';
+import { PaginatedPosts, Post } from './types';
 
 export async function getPublicPosts(params: { page?: number; tag?: string; q?: string }) {
-  // The backend actually returns { data: [...], meta: {...} }
+  // The backend returns { data: [...], meta: {...} }
   const response = await serverGet<any>('/api/posts', { 
     params, 
     auth: false, 
@@ -15,6 +15,11 @@ export async function getPublicPosts(params: { page?: number; tag?: string; q?: 
     page: response.meta?.page || 1,
     limit: response.meta?.limit || 10,
   } as PaginatedPosts;
+} // <--- This closing brace was missing!
+
+export async function getPostById(id: string) {
+  // For ISR pages (like a specific post), we can cache the data.
+  return serverGet<Post>(`/api/posts/${id}`, { auth: false });
 }
 
 //The PDF says the Published Blog Post Detail page must be ISR (Incremental Static Regeneration).
