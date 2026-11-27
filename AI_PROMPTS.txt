@@ -1377,3 +1377,13 @@ Help me build a Client Component for the Blog Comments section. It needs to show
 How the output was used:
 Created `CommentSection.tsx` using `useAuth()` to check login status. Used the shared `api` wrapper for POST/PATCH/DELETE requests. Verified the UI renders comments correctly by creating a comment via a Node script and checking the browser.
 ================================================================================
+================================================================================
+Date: 2026-11-27
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-08
+Prompt:
+Help me build the Tag Page (`/tags/[tag]`) that shows all published posts with a specific tag. It should be a Dynamic SSR page.
+How the output was used:
+Created `app/(public)/tags/[tag]/page.tsx`. Used `getPostsByTag` from `features/blog/api.ts`. Reused the card layout from the Blog List page. Verified clicking a tag on the Blog List correctly routes to this page.
+================================================================================
