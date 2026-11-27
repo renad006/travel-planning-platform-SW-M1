@@ -22,6 +22,7 @@ import {
 import { ListAuditLogsDto } from '../audit/dto/list-audit-logs.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Role } from '../common/enums/role.enum';
 import type { UserDocument } from '../users/schemas/user.schema';
 import { AdminService } from './admin.service';
@@ -69,6 +70,20 @@ export class AdminController {
     @CurrentUser() admin: UserDocument,
   ) {
     return this.adminService.resetUserPassword(id, admin);
+  }
+
+  @Get('hotels')
+  @ApiOperation({
+    summary: 'ACC-13, ACC-15: list hotels for the admin',
+    description:
+      'Admin only. Paginated list of hotels (_id, name, cityId, countryCode, isActive, createdAt). Used to pick a hotel when creating a moderator and to deactivate or reactivate it. sortBy accepts name, createdAt or isActive.',
+  })
+  @ApiOkResponse({ description: 'Paginated hotels { items, total, page, limit }' })
+  @ApiBadRequestResponse({ description: 'Invalid pagination or sort value' })
+  @ApiUnauthorizedResponse({ description: 'Not logged in' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
+  listHotels(@Query() query: PaginationQueryDto) {
+    return this.adminService.listHotels(query);
   }
 
   @Get('audit-logs')
