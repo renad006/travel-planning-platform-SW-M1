@@ -130,3 +130,4 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Post Detail** (`/blog/[id]`): ISR page showing the full post content, tags, images, and metadata (BLG-02).
 - **Like Button**: Interactive Client Component allowing logged-in users to like/unlike a post (BLG-06).
 - **Comments**: Interactive Client Component showing chronological comments, with add/edit/delete functionality for logged-in users (BLG-05, BLG-07).
+- **Tag Page** (`/tags/[tag]`): Filtered view of all posts with a specific tag (BLG-08).
