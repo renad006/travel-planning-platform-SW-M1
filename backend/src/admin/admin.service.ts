@@ -17,6 +17,7 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { CreateModeratorDto } from './dto/create-moderator.dto';
 import { ListAuditLogsDto } from '../audit/dto/list-audit-logs.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Injectable()
 export class AdminService {
@@ -118,6 +119,26 @@ export class AdminService {
 
     // Returned once so the admin can hand it over. Never stored in plain text or logged.
     return { userId, temporaryPassword };
+  }
+  
+    // ACC-13 / ACC-15: paginated hotel list for the admin dashboard
+  async listHotels(query: PaginationQueryDto) {
+    const { page, limit, sortBy, sortOrder } = query;
+    const sortable = ['name', 'createdAt', 'isActive'];
+    const field = sortBy && sortable.includes(sortBy) ? sortBy : 'createdAt';
+    const sort: Record<string, 1 | -1> = { [field]: sortOrder === 'asc' ? 1 : -1 };
+
+    const [items, total] = await Promise.all([
+      this.hotelModel
+        .find()
+        .select('name cityId countryCode isActive createdAt')
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      this.hotelModel.countDocuments(),
+    ]);
+    return { items, total, page, limit };
   }
   // GEN-07: admin audit log query
   listAuditLogs(query: ListAuditLogsDto) {
