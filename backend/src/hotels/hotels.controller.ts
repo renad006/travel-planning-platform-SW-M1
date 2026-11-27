@@ -52,6 +52,24 @@ export class HotelsController {
         return this.hotelsService.createRoom(id, dto);
     }
 
+    @Get(':id/rooms')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'List all rooms of my hotel, deactivated ones included (HTL-05, HTL-06)' })
+    listRooms(@Param('id', ParseObjectIdPipe) id: string, @Query() query: PaginationQueryDto) {
+        return this.hotelsService.listRooms(id, query);
+    }
+
+    @Get(':id/rooms/:roomId/availability')
+    @ProviderScope(ProviderType.HOTEL)
+    @ApiOperation({ summary: 'List the bookable date ranges of a room (HTL-04, HTL-05)' })
+    listAvailability(
+        @Param('id', ParseObjectIdPipe) id: string,
+        @Param('roomId', ParseObjectIdPipe) roomId: string,
+        @Query() query: PaginationQueryDto,
+    ) {
+        return this.hotelsService.listAvailability(id, roomId, query);
+    }
+
     @Post(':id/rooms/:roomId/availability')
     @ProviderScope(ProviderType.HOTEL)
     @ApiOperation({ summary: 'Add a bookable date range to a room (HTL-04)' })

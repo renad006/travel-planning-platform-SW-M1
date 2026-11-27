@@ -78,6 +78,32 @@ export class HotelsService {
             .exec();
     }
 
+    // HTL-05, HTL-06: the moderator's room list, deactivated rooms included
+    async listRooms(hotelId: string, query: PaginationQueryDto) {
+        if (!(await this.findById(hotelId))) {
+            throw new NotFoundException('Hotel not found');
+        }
+        const [items, total] = await Promise.all([
+            this.roomModel.find({ hotelId }).sort({ name: 1 }).skip(getSkip(query)).limit(query.limit).exec(),
+            this.roomModel.countDocuments({ hotelId }).exec(),
+        ]);
+        return buildPaginatedResponse(items, total, query);
+    }
+
+    // HTL-04, HTL-05: a room's bookable ranges with their ids, so they can be edited
+    async listAvailability(hotelId: string, roomId: string, query: PaginationQueryDto) {
+        const room = await this.roomModel.findOne({ _id: roomId, hotelId }).exec();
+        if (!room) {
+            throw new NotFoundException('Room not found in this hotel');
+        }
+        const filter = { roomId: room._id };
+        const [items, total] = await Promise.all([
+            this.availabilityModel.find(filter).sort({ startDate: 1 }).skip(getSkip(query)).limit(query.limit).exec(),
+            this.availabilityModel.countDocuments(filter).exec(),
+        ]);
+        return buildPaginatedResponse(items, total, query);
+    }
+
     async createRoom(hotelId: string, dto: CreateRoomDto) {
         if (!(await this.findById(hotelId))) {
             throw new NotFoundException('Hotel not found');
