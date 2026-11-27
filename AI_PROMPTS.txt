@@ -1386,4 +1386,10 @@ Prompt:
 Help me build the Public Author Profile page (`/authors/[id]`). It needs to show the author's name, join date, and a list of their published posts. I also need to add a link to this page from the blog list cards.
 How the output was used:
 Created `app/(public)/authors/[id]/page.tsx` as a Server Component. Used `getAuthorProfile` from `api.ts`. Added a styled header card for the author and reused the post card layout. Added a "By Author" link to the Blog List page.
+
+Related Requirement: BLG-08
+Prompt:
+Help me build the Tag Page (`/tags/[tag]`) that shows all published posts with a specific tag. It should be a Dynamic SSR page.
+How the output was used:
+Created `app/(public)/tags/[tag]/page.tsx`. Used `getPostsByTag` from `features/blog/api.ts`. Reused the card layout from the Blog List page. Verified clicking a tag on the Blog List correctly routes to this page.
 ================================================================================

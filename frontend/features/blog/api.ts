@@ -29,6 +29,13 @@ export async function getAuthorProfile(id: string, page: number = 1) {
   });
 }
 
+export async function getPostsByTag(tag: string, page: number = 1) {
+  return serverGet<any>(`/api/tags/${tag}/posts`, {
+    params: { page },
+    auth: false,
+  });
+}
+
 //The PDF says the Published Blog Post Detail page must be ISR (Incremental Static Regeneration).
 //But the Blog List page (which you are building) is Dynamic SSR (it changes based on the ?q= search query and page number).
 //  //So fetching without caching is perfectly correct here.

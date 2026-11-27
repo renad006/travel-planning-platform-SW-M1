@@ -131,3 +131,4 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 - **Like Button**: Interactive Client Component allowing logged-in users to like/unlike a post (BLG-06).
 - **Comments**: Interactive Client Component showing chronological comments, with add/edit/delete functionality for logged-in users (BLG-05, BLG-07).
 - **Author Profile** (`/authors/[id]`): Public profile showing author name, join date, and their published posts (BLG-12).
+- **Tag Page** (`/tags/[tag]`): Filtered view of all posts with a specific tag (BLG-08).
