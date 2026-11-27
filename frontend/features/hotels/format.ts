@@ -29,3 +29,7 @@ export function countryName(code: string): string {
 export function photoUrl(path: string): string {
   return `${process.env.BACKEND_URL ?? "http://localhost:3000"}${path}`;
 }
+
+/** "2026-12-01" -> a long date such as "Tuesday, 1 December 2026". Stays are calendar days, so format them in UTC. */
+export const formatDate = (day: string) =>
+  new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone: "UTC" }).format(new Date(day));

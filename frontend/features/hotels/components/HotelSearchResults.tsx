@@ -3,6 +3,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { serverGet } from "@/lib/api.server";
 import type { Paginated } from "@/lib/types";
+import { emptyBox } from "../styles";
 import type { HotelSearchItem, HotelSearchQuery } from "../types";
 import { HotelCard } from "./HotelCard";
 
@@ -25,7 +26,7 @@ export async function HotelSearchResults(query: HotelSearchQuery) {
   } catch (error) {
     if (!(error instanceof ApiError)) throw error; // backend unreachable: the error page handles it
     return (
-      <ul role="alert" className="rounded-xl border border-destructive p-4 text-sm text-destructive">
+      <ul role="alert" className="rounded-xl border border-destructive bg-card p-4 text-sm text-destructive">
         {error.messages.map((message) => (
           <li key={message}>{message}</li>
         ))}
@@ -46,14 +47,14 @@ export async function HotelSearchResults(query: HotelSearchQuery) {
     <section aria-label="Search results" className="flex flex-col gap-4">
       {result.items.length === 0 ? (
         // Placeholder until the shared EmptyState (Member 1) is merged.
-        <p className="rounded-2xl border border-dashed bg-card/60 p-10 text-center text-muted-foreground">
+        <p className={emptyBox}>
           {result.total === 0
             ? "No hotels match this search. Try other dates, fewer guests or a wider price range."
             : "There is nothing on this page."}
         </p>
       ) : (
         <>
-          <p className="text-sm font-semibold text-brand-maroon">
+          <p className="text-sm font-medium">
             {result.total} {result.total === 1 ? "hotel" : "hotels"} found
           </p>
           {result.items.map((hotel) => (

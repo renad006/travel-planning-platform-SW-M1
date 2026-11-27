@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { HeroBanner } from "@/features/hotels/components/HeroBanner";
 import { HotelFilters, HotelSearchForm } from "@/features/hotels/components/HotelSearchForm";
 import { HotelSearchResults } from "@/features/hotels/components/HotelSearchResults";
+import { SearchHero } from "@/features/hotels/components/SearchHero";
 import { getPlaceOptions } from "@/features/hotels/places";
+import { emptyBox } from "@/features/hotels/styles";
 import { SEARCH_KEYS, type HotelSearchQuery } from "@/features/hotels/types";
 
 export const metadata: Metadata = {
@@ -24,26 +25,26 @@ export default async function HotelsPage({
   const { cities, countries } = await getPlaceOptions();
 
   return (
-    <main className="flex w-full flex-col pb-12">
-      <HeroBanner>
-        <p className="text-sm font-medium tracking-widest text-brand-tan uppercase">Hotels</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Find your stay</h1>
-        <p className="mt-2 font-bold text-brand-tan">
-          Search by city or country and see only hotels with rooms free for your whole stay.
-        </p>
-      </HeroBanner>
-      <div className="relative mx-auto -mt-14 flex w-full max-w-6xl flex-col gap-6 px-4 sm:px-6">
-        <HotelSearchForm query={query} cities={cities} countries={countries} />
-        <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-          <HotelFilters query={query} />
-          {query.checkIn && query.checkOut ? (
-            <HotelSearchResults {...query} />
-          ) : (
-            <p className="rounded-2xl border border-dashed bg-card/60 p-10 text-center text-muted-foreground">
-              Enter your destination and dates to see available hotels.
-            </p>
-          )}
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6 sm:px-6">
+      <div>
+        <SearchHero
+          title="Find your stay"
+          subtitle="Search by city or country and see only hotels with rooms free for your whole stay."
+        />
+        {/* overlaps the lower edge of the header */}
+        <div className="relative -mt-10 px-3 lg:px-8">
+          <HotelSearchForm query={query} cities={cities} countries={countries} />
         </div>
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <HotelFilters query={query} />
+        {query.checkIn && query.checkOut ? (
+          <HotelSearchResults {...query} />
+        ) : (
+          <p className={emptyBox}>
+            Enter your destination and dates to see available hotels.
+          </p>
+        )}
       </div>
     </main>
   );

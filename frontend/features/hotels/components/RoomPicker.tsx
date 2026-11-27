@@ -3,7 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "../format";
-import { redButton } from "../styles";
+import { redButton, surface } from "../styles";
 import type { AvailableRoom } from "../types";
 
 const Selection = createContext<{
@@ -26,7 +26,7 @@ export function RoomList() {
       {rooms.map((room) => (
         <label
           key={room._id}
-          className="flex cursor-pointer items-center gap-4 rounded-2xl border bg-card p-4 transition hover:shadow-md has-checked:border-brand-maroon has-checked:bg-brand-tan/20"
+          className={`flex cursor-pointer items-center gap-4 p-5 transition duration-300 hover:ring-brand-tan has-checked:ring-2 has-checked:ring-brand-maroon ${surface}`}
         >
           <input
             type="checkbox"
@@ -37,10 +37,10 @@ export function RoomList() {
             className="size-5 shrink-0 accent-brand-maroon"
           />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="font-semibold text-brand-coffee">
+            <span className="font-semibold">
               {room.type} · Room {room.name}
             </span>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-brand-navy/70">
               {room.beds} {room.beds === 1 ? "bed" : "beds"} · up to {room.maxOccupancy}{" "}
               {room.maxOccupancy === 1 ? "guest" : "guests"}
             </span>
@@ -64,19 +64,20 @@ export function BookingSummary({ stay }: { stay: Record<string, string> }) {
   const total = chosen.reduce((sum, room) => sum + room.totalPrice, 0);
 
   return (
-    <form action="/hotels/book" className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-lg">
+    <form action="/hotels/book" className={`flex flex-col gap-3 p-5 ${surface}`}>
       {Object.entries(stay).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       {chosen.map((room) => (
         <input key={room._id} type="hidden" name="roomId" value={room._id} />
       ))}
-      <p aria-live="polite" className="text-sm">
+      <h2 className="text-sm font-semibold">Your selection</h2>
+      <p aria-live="polite" className="rounded-lg bg-brand-tan/25 p-3 text-sm font-medium">
         {chosen.length === 0
           ? "Select at least one room."
           : `${chosen.length} ${chosen.length === 1 ? "room" : "rooms"} · ${formatPrice(total)} total`}
       </p>
-      <Button type="submit" size="lg" className={`h-10 w-full ${redButton}`} disabled={chosen.length === 0}>
+      <Button type="submit" size="lg" className={`h-11 w-full ${redButton}`} disabled={chosen.length === 0}>
         Continue to booking
       </Button>
     </form>
