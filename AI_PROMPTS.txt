@@ -1337,4 +1337,13 @@ Write the bonus favourites list for hotels and public itineraries in its own fol
 How the output was used:
 Added a favourites module: save a hotel or a public itinerary (a hotel must exist and be active, an itinerary must be public and not hidden, saving twice is refused), list my favourites newest first with a short summary and an optional type filter, and remove one. Registered it with one line in app.module.ts. Tested with curl, 25 checks: save 201, duplicate 409, unknown or malformed ids 404 and 400, a private itinerary 404, the list drops an itinerary that turns private and shows it again when it is public, removing twice 404, admin 403 and logged out 401.
 ================================================
-
+================================================================================
+Date: 2026-11-27
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-02
+Prompt:
+Help me build the public Blog list page in Next.js App Router. I need to use Dynamic SSR, fetch from the backend using the shared api.server.ts, map the backend's `{data, meta}` response to the frontend's `{items, total}` type, and style it with Tailwind using our custom color palette.
+How the output was used:
+Created `features/blog/api.ts` and `app/(public)/blog/page.tsx`. Added a try/catch block for error handling, mapped the API response correctly, and built the UI grid using the team's color tokens.
+================================================================================
