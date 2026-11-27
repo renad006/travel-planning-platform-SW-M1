@@ -1377,3 +1377,13 @@ Help me build a Client Component for the Blog Comments section. It needs to show
 How the output was used:
 Created `CommentSection.tsx` using `useAuth()` to check login status. Used the shared `api` wrapper for POST/PATCH/DELETE requests. Verified the UI renders comments correctly by creating a comment via a Node script and checking the browser.
 ================================================================================
+================================================================================
+Date: 2026-11-27
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-12
+Prompt:
+Help me build the Public Author Profile page (`/authors/[id]`). It needs to show the author's name, join date, and a list of their published posts. I also need to add a link to this page from the blog list cards.
+How the output was used:
+Created `app/(public)/authors/[id]/page.tsx` as a Server Component. Used `getAuthorProfile` from `api.ts`. Added a styled header card for the author and reused the post card layout. Added a "By Author" link to the Blog List page.
+================================================================================

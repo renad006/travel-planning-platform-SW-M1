@@ -15,15 +15,12 @@ export default async function BlogPage({
   let errorMsg = null;
 
   try {
-    // Try to fetch the posts
     data = await getPublicPosts({ page, tag, q });
   } catch (error: any) {
-    // If it fails, capture the exact error message
     console.error("FETCH ERROR:", error);
     errorMsg = error.message || "Unknown error occurred";
   }
 
-  // If there was an error, show the exact error on the screen
   if (errorMsg) {
     return (
       <div className="container mx-auto p-10 text-center text-red-500 font-mono bg-red-50 border border-red-200 rounded mt-10">
@@ -62,6 +59,20 @@ export default async function BlogPage({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {data.items.map((post) => (
             <div key={post._id} className="border border-slate-gray rounded-lg p-6 shadow-sm hover:shadow-md flex flex-col">
+              
+              {/* AUTHOR LINK GOES HERE */}
+              <Link 
+                href={`/authors/${post.authorId}`} 
+                className="text-sm text-slate-gray hover:text-primary hover:underline mb-2 block"
+              >
+                            <Link 
+                href={`/authors/${post.authorId}`} 
+                className="text-sm text-slate-gray hover:text-primary hover:underline mb-3 block"
+              >
+                By Author
+              </Link>
+              </Link>
+
               <h2 className="text-2xl font-bold text-primary mb-2 line-clamp-2">{post.title}</h2>
               <p className="text-coffee mb-4 line-clamp-3 flex-grow">{post.body}</p>
               
