@@ -57,20 +57,14 @@ export default async function BlogPage({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {data.items.map((post) => (
+                    {data.items.map((post) => (
             <div key={post._id} className="border border-slate-gray rounded-lg p-6 shadow-sm hover:shadow-md flex flex-col">
               
-              {/* AUTHOR LINK GOES HERE */}
               <Link 
-                href={`/authors/${post.authorId}`} 
-                className="text-sm text-slate-gray hover:text-primary hover:underline mb-2 block"
-              >
-                            <Link 
                 href={`/authors/${post.authorId}`} 
                 className="text-sm text-slate-gray hover:text-primary hover:underline mb-3 block"
               >
                 By Author
-              </Link>
               </Link>
 
               <h2 className="text-2xl font-bold text-primary mb-2 line-clamp-2">{post.title}</h2>
