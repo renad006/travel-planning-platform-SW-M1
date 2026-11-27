@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import type { Option } from "../places";
+import { redButton } from "../styles";
 import type { HotelSearchQuery } from "../types";
 
 // Placeholder field styling until the shared FormField (Member 1) is merged.
-const label = "flex flex-col gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase";
+const label = "flex flex-col gap-1.5 text-xs font-semibold tracking-wide text-brand-coffee uppercase";
 const field =
   "h-10 w-full rounded-lg border border-input bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40";
 
@@ -65,7 +66,7 @@ export function HotelSearchForm({
       <Input text="Check-out" type="date" name="checkOut" required min={today} defaultValue={query.checkOut} />
       <Input text="Guests" type="number" name="guests" required min={1} defaultValue={query.guests ?? "2"} />
       <Input text="Rooms" type="number" name="rooms" required min={1} defaultValue={query.rooms ?? "1"} />
-      <Button type="submit" size="lg" className="col-span-2 h-10 px-6 lg:col-span-1">
+      <Button type="submit" size="lg" className={`col-span-2 h-10 px-6 lg:col-span-1 ${redButton}`}>
         Search
       </Button>
     </form>
@@ -82,7 +83,7 @@ export function HotelFilters({ query }: { query: HotelSearchQuery }) {
       aria-label="Filters and sorting"
       className="grid grid-cols-2 gap-3 rounded-2xl border bg-card p-4 lg:sticky lg:top-4"
     >
-      <h2 className="col-span-2 font-semibold text-brand-coffee">Filters and sorting</h2>
+      <h2 className="col-span-2 font-semibold text-brand-maroon">Filters and sorting</h2>
       <Input {...price} text="Min price" name="minPrice" placeholder="Any" defaultValue={query.minPrice} />
       <Input {...price} text="Max price" name="maxPrice" placeholder="Any" defaultValue={query.maxPrice} />
       <div className="col-span-2 grid gap-3">
@@ -110,7 +111,7 @@ export function HotelFilters({ query }: { query: HotelSearchQuery }) {
             { value: "desc", label: "High to low" },
           ]}
         />
-        <Button type="submit" form={FORM_ID} variant="outline" size="lg" className="h-10">
+        <Button type="submit" form={FORM_ID} size="lg" className="h-10 bg-brand-steel text-card hover:bg-brand-steel/85">
           Apply filters
         </Button>
       </div>

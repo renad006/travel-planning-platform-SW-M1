@@ -53,7 +53,7 @@ export async function HotelSearchResults(query: HotelSearchQuery) {
         </p>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-semibold text-brand-maroon">
             {result.total} {result.total === 1 ? "hotel" : "hotels"} found
           </p>
           {result.items.map((hotel) => (

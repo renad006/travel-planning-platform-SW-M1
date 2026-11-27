@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "../format";
+import { redButton } from "../styles";
 import type { AvailableRoom } from "../types";
 
 const Selection = createContext<{
@@ -25,7 +26,7 @@ export function RoomList() {
       {rooms.map((room) => (
         <label
           key={room._id}
-          className="flex cursor-pointer items-center gap-4 rounded-2xl border bg-card p-4 transition hover:shadow-md has-checked:border-primary has-checked:bg-accent/40"
+          className="flex cursor-pointer items-center gap-4 rounded-2xl border bg-card p-4 transition hover:shadow-md has-checked:border-brand-maroon has-checked:bg-brand-tan/20"
         >
           <input
             type="checkbox"
@@ -33,10 +34,10 @@ export function RoomList() {
             onChange={(event) =>
               setSelected(event.target.checked ? [...selected, room._id] : selected.filter((id) => id !== room._id))
             }
-            className="size-5 shrink-0 accent-primary"
+            className="size-5 shrink-0 accent-brand-maroon"
           />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="font-semibold">
+            <span className="font-semibold text-brand-coffee">
               {room.type} · Room {room.name}
             </span>
             <span className="text-sm text-muted-foreground">
@@ -75,7 +76,7 @@ export function BookingSummary({ stay }: { stay: Record<string, string> }) {
           ? "Select at least one room."
           : `${chosen.length} ${chosen.length === 1 ? "room" : "rooms"} · ${formatPrice(total)} total`}
       </p>
-      <Button type="submit" size="lg" className="h-10 w-full" disabled={chosen.length === 0}>
+      <Button type="submit" size="lg" className={`h-10 w-full ${redButton}`} disabled={chosen.length === 0}>
         Continue to booking
       </Button>
     </form>

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { HeroBanner } from "@/features/hotels/components/HeroBanner";
 import { Input } from "@/features/hotels/components/HotelSearchForm";
 import { BookingSummary, RoomList, RoomSelection } from "@/features/hotels/components/RoomPicker";
 import { cityName, countryName, photoUrl } from "@/features/hotels/format";
 import type { AvailableRoom, Hotel } from "@/features/hotels/types";
+import { redButton, sectionHeading } from "@/features/hotels/styles";
 import { ApiError } from "@/lib/api";
 import { serverGet } from "@/lib/api.server";
 
@@ -43,7 +45,6 @@ function Photo({ path, alt }: { path: string; alt: string }) {
 }
 
 const card = "rounded-2xl border bg-card p-5";
-const heading = "text-xl font-semibold tracking-tight";
 
 // Dynamic SSR (HTL-02, HTL-15): available rooms depend on the dates in the URL.
 export default async function HotelPage({ params, searchParams }: Props) {
@@ -80,30 +81,28 @@ export default async function HotelPage({ params, searchParams }: Props) {
 
   return (
     <main className="flex w-full flex-col pb-12">
-      <header className="bg-brand-navy pt-8 pb-24 text-primary-foreground">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-          <Link
-            href="/hotels"
-            className="inline-flex h-10 items-center rounded-lg bg-brand-tan px-4 text-sm font-semibold text-brand-navy shadow-md hover:bg-card focus-visible:ring-3 focus-visible:ring-ring"
-          >
-            ← Back to search
-          </Link>
-          {hotel.starClass ? (
-            <p className="mt-4 text-brand-tan" aria-label={`${hotel.starClass} star hotel`}>
-              {"★".repeat(hotel.starClass)}
-            </p>
-          ) : null}
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{hotel.name}</h1>
-          <p className="mt-2 text-primary-foreground/80">
-            {hotel.address}, {cityName(hotel.cityId)}, {countryName(hotel.countryCode)}
+      <HeroBanner>
+        <Link
+          href="/hotels"
+          className="inline-flex h-10 items-center rounded-lg bg-brand-tan px-4 text-sm font-semibold text-brand-navy shadow-md hover:bg-card focus-visible:ring-3 focus-visible:ring-ring"
+        >
+          ← Back to search
+        </Link>
+        {hotel.starClass ? (
+          <p className="mt-4 text-brand-tan" aria-label={`${hotel.starClass} star hotel`}>
+            {"★".repeat(hotel.starClass)}
           </p>
-          <p className="mt-3 inline-block rounded-lg bg-brand-tan px-3 py-1 text-sm font-semibold text-brand-navy">
-            {rating}
-          </p>
-        </div>
-      </header>
+        ) : null}
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{hotel.name}</h1>
+        <p className="mt-2 font-bold text-brand-tan">
+          {hotel.address}, {cityName(hotel.cityId)}, {countryName(hotel.countryCode)}
+        </p>
+        <p className="mt-3 inline-block rounded-lg bg-brand-tan px-3 py-1 text-sm font-semibold text-brand-navy">
+          {rating}
+        </p>
+      </HeroBanner>
 
-      <div className="mx-auto -mt-14 flex w-full max-w-6xl flex-col gap-8 px-4 sm:px-6">
+      <div className="relative mx-auto -mt-14 flex w-full max-w-6xl flex-col gap-8 px-4 sm:px-6">
         <section aria-label="Photos" className="rounded-2xl border bg-card p-2 shadow-lg">
           {cover ? (
             // square cover on one half, up to four square photos on the other
@@ -115,7 +114,7 @@ export default async function HotelPage({ params, searchParams }: Props) {
                 ))}
                 {/* a hotel has at most five photos: plain tiles keep the empty slots square */}
                 {Array.from({ length: Math.max(0, 4 - others.length) }, (_, index) => (
-                  <div key={index} aria-hidden className="aspect-square rounded-xl bg-muted" />
+                  <div key={index} aria-hidden className="aspect-square rounded-xl bg-brand-tan/40" />
                 ))}
               </div>
             </div>
@@ -132,7 +131,7 @@ export default async function HotelPage({ params, searchParams }: Props) {
             <div className="flex flex-col gap-8">
               {(hotel.description || hotel.amenities.length > 0) && (
                 <section className="flex flex-col gap-3">
-                  <h2 className={heading}>About this hotel</h2>
+                  <h2 className={sectionHeading}>About this hotel</h2>
                   {hotel.description && <p className="text-muted-foreground">{hotel.description}</p>}
                   <ul aria-label="Amenities" className="flex flex-wrap gap-2">
                     {hotel.amenities.map((amenity) => (
@@ -145,7 +144,7 @@ export default async function HotelPage({ params, searchParams }: Props) {
               )}
 
               <section id="rooms" className="flex flex-col gap-4">
-                <h2 className={heading}>Available rooms</h2>
+                <h2 className={sectionHeading}>Available rooms</h2>
                 <form
                   key={`${checkIn}-${checkOut}`}
                   action={`/hotels/${hotel._id}#rooms`}
@@ -155,7 +154,7 @@ export default async function HotelPage({ params, searchParams }: Props) {
                   <input type="hidden" name="rooms" value={roomCount} />
                   <Input text="Check-in" type="date" name="checkIn" required min={today} defaultValue={checkIn} />
                   <Input text="Check-out" type="date" name="checkOut" required min={today} defaultValue={checkOut} />
-                  <Button type="submit" size="lg" variant="outline" className="col-span-2 h-10 px-6 sm:col-span-1">
+                  <Button type="submit" size="lg" className={`col-span-2 h-10 px-6 sm:col-span-1 ${redButton}`}>
                     {checkIn && checkOut ? "Change dates" : "Show rooms"}
                   </Button>
                 </form>
@@ -178,7 +177,7 @@ export default async function HotelPage({ params, searchParams }: Props) {
               </section>
 
               <section className="flex flex-col gap-3">
-                <h2 className={heading}>Reviews</h2>
+                <h2 className={sectionHeading}>Reviews</h2>
                 {/* Placeholder: Member 5's reviews section goes here. */}
                 <p className="rounded-2xl border border-dashed bg-card/60 p-8 text-center text-muted-foreground">
                   {rating}
@@ -192,16 +191,16 @@ export default async function HotelPage({ params, searchParams }: Props) {
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <dt className="text-muted-foreground">Check-in</dt>
-                    <dd className="text-lg font-semibold">{hotel.checkInTime ?? "Not set"}</dd>
+                    <dd className="text-lg font-semibold text-brand-steel">{hotel.checkInTime ?? "Not set"}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Check-out</dt>
-                    <dd className="text-lg font-semibold">{hotel.checkOutTime ?? "Not set"}</dd>
+                    <dd className="text-lg font-semibold text-brand-steel">{hotel.checkOutTime ?? "Not set"}</dd>
                   </div>
                 </dl>
               </section>
               <section className={card}>
-                <h2 className="font-semibold text-brand-coffee">Cancellation policy</h2>
+                <h2 className="font-semibold text-brand-maroon">Cancellation policy</h2>
                 {tiers.length === 0 ? (
                   <p className="mt-3 text-sm">No refund on cancellation.</p>
                 ) : (
@@ -211,7 +210,7 @@ export default async function HotelPage({ params, searchParams }: Props) {
                         <span>
                           {tier.daysBefore}+ {tier.daysBefore === 1 ? "day" : "days"} before check-in
                         </span>
-                        <span className="font-semibold whitespace-nowrap">{tier.refundPercent}% refund</span>
+                        <span className="font-semibold whitespace-nowrap text-brand-maroon">{tier.refundPercent}% refund</span>
                       </li>
                     ))}
                     <li className="text-muted-foreground">Later cancellations are not refunded.</li>

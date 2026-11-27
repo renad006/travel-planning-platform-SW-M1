@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HeroBanner } from "@/features/hotels/components/HeroBanner";
 import { HotelFilters, HotelSearchForm } from "@/features/hotels/components/HotelSearchForm";
 import { HotelSearchResults } from "@/features/hotels/components/HotelSearchResults";
 import { getPlaceOptions } from "@/features/hotels/places";
@@ -24,17 +25,14 @@ export default async function HotelsPage({
 
   return (
     <main className="flex w-full flex-col pb-12">
-      <header className="bg-brand-navy pt-12 pb-24 text-primary-foreground">
-        {/* same width and padding as the content below, so the left edges line up */}
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-          <p className="text-sm font-medium tracking-widest text-brand-tan uppercase">Hotels</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Find your stay</h1>
-          <p className="mt-2 text-primary-foreground/80">
-            Search by city or country and see only hotels with rooms free for your whole stay.
-          </p>
-        </div>
-      </header>
-      <div className="mx-auto -mt-14 flex w-full max-w-6xl flex-col gap-6 px-4 sm:px-6">
+      <HeroBanner>
+        <p className="text-sm font-medium tracking-widest text-brand-tan uppercase">Hotels</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Find your stay</h1>
+        <p className="mt-2 font-bold text-brand-tan">
+          Search by city or country and see only hotels with rooms free for your whole stay.
+        </p>
+      </HeroBanner>
+      <div className="relative mx-auto -mt-14 flex w-full max-w-6xl flex-col gap-6 px-4 sm:px-6">
         <HotelSearchForm query={query} cities={cities} countries={countries} />
         <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
           <HotelFilters query={query} />
