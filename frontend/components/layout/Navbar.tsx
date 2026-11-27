@@ -29,6 +29,15 @@ const STAFF_MENU = [
   { href: "/change-password", label: "Change password" },
 ];
 
+function PlaneIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 2 11 13" />
+      <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
 function BellIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -41,11 +50,7 @@ function BellIcon() {
 function MenuIcon({ open }: { open: boolean }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      {open ? (
-        <path d="M6 6l12 12M18 6L6 18" />
-      ) : (
-        <path d="M4 7h16M4 12h16M4 17h16" />
-      )}
+      {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
     </svg>
   );
 }
@@ -78,8 +83,15 @@ export default function Navbar() {
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
-  const linkClass = (href: string) =>
-    `text-sm font-medium transition-colors hover:text-brand-tan ${
+  const desktopLink = (href: string) =>
+    `border-b-2 py-1 text-sm font-medium transition-colors hover:text-brand-tan ${
+      isActive(href)
+        ? "border-brand-tan text-brand-tan"
+        : "border-transparent text-primary-foreground/90"
+    }`;
+
+  const mobileLink = (href: string) =>
+    `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-white/10 ${
       isActive(href) ? "text-brand-tan" : "text-primary-foreground"
     }`;
 
@@ -99,16 +111,29 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-primary text-primary-foreground">
+    <header className="sticky top-0 z-40 bg-brand-navy text-primary-foreground shadow-md">
+      {/* Brand stripe */}
+      <div className="flex h-1.5" aria-hidden="true">
+        <span className="flex-1 bg-brand-steel" />
+        <span className="flex-1 bg-brand-tan" />
+        <span className="flex-1 bg-brand-coffee" />
+        <span className="flex-1 bg-brand-maroon" />
+      </div>
+
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" onClick={closeAll} className="text-lg font-semibold tracking-tight">
-          Travel Platform
+        <Link href="/" onClick={closeAll} className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-tan text-brand-navy">
+            <PlaneIcon />
+          </span>
+          <span className="text-lg font-bold tracking-tight">
+            Travel<span className="text-brand-tan">Platform</span>
+          </span>
         </Link>
 
-        <ul className="hidden items-center gap-6 md:flex">
+        <ul className="hidden items-center gap-7 md:flex">
           {links.map((l) => (
             <li key={l.href}>
-              <Link href={l.href} className={linkClass(l.href)}>
+              <Link href={l.href} className={desktopLink(l.href)}>
                 {l.label}
               </Link>
             </li>
@@ -123,7 +148,7 @@ export default function Navbar() {
               <Link
                 href="/notifications"
                 aria-label="Notifications"
-                className="rounded-full p-2 transition-colors hover:bg-white/10"
+                className="rounded-full p-2 text-brand-tan transition-colors hover:bg-white/10"
               >
                 <BellIcon />
               </Link>
@@ -133,9 +158,9 @@ export default function Navbar() {
                   onClick={() => setMenuOpen((o) => !o)}
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
-                  className="flex items-center gap-2 rounded-full bg-white/10 py-1.5 pl-1.5 pr-3 text-sm font-medium transition-colors hover:bg-white/20"
+                  className="flex items-center gap-2 rounded-full bg-white/10 py-1.5 pl-1.5 pr-4 text-sm font-medium transition-colors hover:bg-white/20"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-tan text-primary">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-tan font-bold text-brand-navy">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                   <span className="max-w-32 truncate">{user.name}</span>
@@ -143,7 +168,7 @@ export default function Navbar() {
                 {menuOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-background py-1 text-foreground shadow-lg"
+                    className="absolute right-0 mt-3 w-60 overflow-hidden rounded-xl border-2 border-brand-tan bg-background py-1 text-foreground shadow-xl"
                   >
                     {menu.map((m) => (
                       <Link
@@ -151,7 +176,7 @@ export default function Navbar() {
                         href={m.href}
                         role="menuitem"
                         onClick={closeAll}
-                        className="block px-4 py-2 text-sm hover:bg-muted"
+                        className="block px-4 py-2.5 text-sm font-medium transition-colors hover:bg-brand-tan/30"
                       >
                         {m.label}
                       </Link>
@@ -160,7 +185,7 @@ export default function Navbar() {
                       type="button"
                       role="menuitem"
                       onClick={handleLogout}
-                      className="block w-full border-t border-border px-4 py-2 text-left text-sm text-destructive hover:bg-muted"
+                      className="block w-full border-t border-brand-tan/60 px-4 py-2.5 text-left text-sm font-semibold text-brand-maroon transition-colors hover:bg-brand-maroon hover:text-primary-foreground"
                     >
                       Log out
                     </button>
@@ -170,12 +195,15 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/login" className="text-sm font-medium transition-colors hover:text-brand-tan">
+              <Link
+                href="/login"
+                className="rounded-full border border-brand-tan/70 px-5 py-2 text-sm font-medium text-brand-tan transition-colors hover:bg-brand-tan hover:text-brand-navy"
+              >
                 Log in
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-brand-tan px-4 py-2 text-sm font-semibold text-primary transition-opacity hover:opacity-90"
+                className="rounded-full bg-brand-maroon px-5 py-2 text-sm font-semibold text-primary-foreground ring-1 ring-brand-tan/60 transition hover:-translate-y-0.5 hover:brightness-125"
               >
                 Sign up
               </Link>
@@ -188,7 +216,7 @@ export default function Navbar() {
           onClick={() => setMobileOpen((o) => !o)}
           aria-label="Toggle menu"
           aria-expanded={mobileOpen}
-          className="rounded-md p-2 hover:bg-white/10 md:hidden"
+          className="rounded-lg p-2 text-brand-tan hover:bg-white/10 md:hidden"
         >
           <MenuIcon open={mobileOpen} />
         </button>
@@ -199,7 +227,7 @@ export default function Navbar() {
           <ul className="mx-auto max-w-7xl space-y-1 px-4 py-3 sm:px-6">
             {links.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} onClick={closeAll} className={`block py-2 ${linkClass(l.href)}`}>
+                <Link href={l.href} onClick={closeAll} className={mobileLink(l.href)}>
                   {l.label}
                 </Link>
               </li>
@@ -209,7 +237,7 @@ export default function Navbar() {
                 <li className="my-2 border-t border-white/10" />
                 {menu.map((m) => (
                   <li key={m.href}>
-                    <Link href={m.href} onClick={closeAll} className={`block py-2 ${linkClass(m.href)}`}>
+                    <Link href={m.href} onClick={closeAll} className={mobileLink(m.href)}>
                       {m.label}
                     </Link>
                   </li>
@@ -218,7 +246,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="block w-full py-2 text-left text-sm font-medium hover:text-brand-tan"
+                    className="mt-2 block w-full rounded-lg bg-brand-maroon px-3 py-2.5 text-left text-sm font-semibold text-primary-foreground ring-1 ring-brand-tan/60"
                   >
                     Log out
                   </button>
@@ -229,12 +257,20 @@ export default function Navbar() {
               <>
                 <li className="my-2 border-t border-white/10" />
                 <li>
-                  <Link href="/login" onClick={closeAll} className="block py-2 text-sm font-medium hover:text-brand-tan">
+                  <Link
+                    href="/login"
+                    onClick={closeAll}
+                    className="block rounded-lg border border-brand-tan/70 px-3 py-2.5 text-center text-sm font-medium text-brand-tan"
+                  >
                     Log in
                   </Link>
                 </li>
                 <li>
-                  <Link href="/register" onClick={closeAll} className="block py-2 text-sm font-semibold text-brand-tan">
+                  <Link
+                    href="/register"
+                    onClick={closeAll}
+                    className="mt-2 block rounded-lg bg-brand-maroon px-3 py-2.5 text-center text-sm font-semibold text-primary-foreground ring-1 ring-brand-tan/60"
+                  >
                     Sign up
                   </Link>
                 </li>
