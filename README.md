@@ -127,3 +127,5 @@ To test protected endpoints in Swagger, call `POST /api/auth/login` first. The J
 
 - **Public Blog List** (`/blog`): Dynamic SSR page showing published posts, with keyword search and pagination (BLG-02, BLG-09).
 - **Post Detail** (`/blog/[id]`): ISR page showing the full post content, tags, images, and metadata (BLG-02).
+- **Post Detail** (`/blog/[id]`): ISR page showing the full post content, tags, images, and metadata (BLG-02).
+- **Like Button**: Interactive Client Component allowing logged-in users to like/unlike a post (BLG-06).
