@@ -2,6 +2,7 @@ import { getPostById } from '@/features/blog/api';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import LikeButton from '@/features/blog/components/LikeButton';
+import CommentSection from '@/features/blog/components/CommentSection';
 
 // ISR: Revalidate every 60 seconds
 export const revalidate = 60;
@@ -68,7 +69,10 @@ export default async function PostDetailPage({
       {/* Placeholder for Comments (We will build this next) */}
       <div className="mt-12 border-t border-slate-gray/50 pt-8">
         <h3 className="text-2xl font-bold text-primary mb-4">Comments</h3>
-        <p className="text-slate-gray italic">Client-side comments component will go here.</p>
+       <CommentSection 
+  postId={post._id} 
+  initialComments={(post as any).comments || []} 
+/>
       </div>
     </div>
   );

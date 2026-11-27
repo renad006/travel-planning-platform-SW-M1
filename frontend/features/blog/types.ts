@@ -18,3 +18,13 @@ export interface Post {
 }
 
 export type PaginatedPosts = Paginated<Post>;
+
+export interface Comment {
+  _id: string;
+  postId: string;
+  authorId: string;
+  text: string;
+  isHidden: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
