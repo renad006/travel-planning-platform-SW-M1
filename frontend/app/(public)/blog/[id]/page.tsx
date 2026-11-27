@@ -1,6 +1,7 @@
 import { getPostById } from '@/features/blog/api';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import LikeButton from '@/features/blog/components/LikeButton';
 
 // ISR: Revalidate every 60 seconds
 export const revalidate = 60;
@@ -41,7 +42,11 @@ export default async function PostDetailPage({
 
         <div className="text-slate-gray text-sm mb-8 flex gap-4 border-b border-slate-gray/30 pb-4">
           <span>Published: {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}</span>
-          <span>❤️ {post.likeCount} Likes</span>
+          <LikeButton 
+  postId={post._id} 
+  initialLikes={post.likeCount} 
+  initialLikedByMe={(post as any).likedByMe || false} 
+/>
           <span>💬 {post.commentCount} Comments</span>
         </div>
 

@@ -1357,3 +1357,13 @@ Help me build the Single Post Detail page using Next.js App Router. I need to im
 How the output was used:
 Created `app/(public)/blog/[id]/page.tsx`. Used dynamic routing and `notFound()` for missing posts. Added ISR revalidation to satisfy the PDF requirements for static rendering.
 ================================================================================
+================================================================================
+Date: 2026-11-27
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-02, BLG-06
+Prompt:
+Help me build the Single Post Detail page with ISR, and create a Client Component for the Like button that communicates with the backend and handles 401 errors.
+How the output was used:
+Created `app/(public)/blog/[id]/page.tsx` using ISR (`revalidate = 60`). Created `features/blog/components/LikeButton.tsx` as a Client Component using the shared `api` wrapper. Tested the API connection via a local Node script and verified likes increment correctly.
+================================================================================
