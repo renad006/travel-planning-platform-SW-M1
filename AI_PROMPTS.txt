@@ -1367,3 +1367,13 @@ Help me build the Single Post Detail page with ISR, and create a Client Componen
 How the output was used:
 Created `app/(public)/blog/[id]/page.tsx` using ISR (`revalidate = 60`). Created `features/blog/components/LikeButton.tsx` as a Client Component using the shared `api` wrapper. Tested the API connection via a local Node script and verified likes increment correctly.
 ================================================================================
+================================================================================
+Date: 2026-11-27
+Student: Noor
+Tool: deepseek
+Related Requirement: BLG-05, BLG-07
+Prompt:
+Help me build a Client Component for the Blog Comments section. It needs to show existing comments, let logged-in users post new ones (max 500 chars), edit/delete their own, and show a "please log in" banner for guests.
+How the output was used:
+Created `CommentSection.tsx` using `useAuth()` to check login status. Used the shared `api` wrapper for POST/PATCH/DELETE requests. Verified the UI renders comments correctly by creating a comment via a Node script and checking the browser.
+================================================================================
